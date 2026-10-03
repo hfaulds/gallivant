@@ -196,6 +196,42 @@ func f(s Shape, match int, enum enum, ch chan int) {
 	}
 }
 
+// TestGallivantMatchIdentInRhs checks that an assignment to a variable named
+// match inside a function literal on the right-hand side of an assignment is
+// not mistaken for a comparison (the enclosing rhs context must not leak).
+func TestGallivantMatchIdentInRhs(t *testing.T) {
+	const src = `package p
+
+var f = func(match bool, x int) bool {
+	match = x == 1
+	if x == 2 {
+		match = true
+	}
+	switch x {
+	case 3:
+		match = x > 2 && x < 4
+	}
+	return match
+}
+`
+	f, err := ParseFile(token.NewFileSet(), "match_rhs.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	ast.Inspect(f, func(node ast.Node) bool {
+		if as, _ := node.(*ast.AssignStmt); as != nil {
+			if id, _ := as.Lhs[0].(*ast.Ident); id != nil && id.Name == "match" {
+				n++
+			}
+		}
+		return true
+	})
+	if n != 3 {
+		t.Errorf("found %d assignments to match, want 3", n)
+	}
+}
+
 func TestGallivantMatchErrors(t *testing.T) {
 	for _, src := range []string{
 		"package p; func f(s S) { match s }",

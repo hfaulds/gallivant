@@ -2392,8 +2392,12 @@ func (p *parser) parseMatchStmtOrSimple() ast.Stmt {
 	}
 
 	// "match" is an identifier: continue as parseStmt would for a statement
-	// starting with an identifier.
+	// starting with an identifier. The statement is not in rhs position
+	// even if an enclosing expression (such as a function literal) is.
+	old := p.inRhs
+	p.inRhs = false
 	x := p.parseBinaryExpr(p.parsePrimaryExpr(ident), token.LowestPrec+1)
+	p.inRhs = old
 	s, _ := p.parseSimpleStmtFrom(x, labelOk)
 	if _, isLabeledStmt := s.(*ast.LabeledStmt); !isLabeledStmt {
 		p.expectSemi()
