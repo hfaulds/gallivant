@@ -1,0 +1,81 @@
+// Copyright 2026 The Gallivant Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Enum types and match statements (Gallivant).
+package gallivant
+
+type Shape enum {
+	Empty
+	Circle(radius float64)   // a circle
+	Rect(w, h float64)
+	Unit()
+}
+
+// One-line enums are expanded to one variant per line.
+type Option[T any] enum { None; Some(T) }
+
+type Empty enum {}
+
+type Nothing enum {
+}
+
+// Comments inside an enum are preserved.
+type Commented enum {
+	// A is the first variant.
+	A
+	// B carries a payload.
+	B(x int, y string)
+}
+
+type Qualified enum {
+	Pair(a []int, b map[string]*Shape)
+	Fn(f func(int) error)
+}
+
+// enum and match are ordinary identifiers elsewhere.
+type enum struct{ match int }
+
+type E2 enum
+
+func f(s Shape, match int, enum enum, ch chan int) {
+	match s {
+	case Empty:
+	case Circle(r):
+		_ = r
+	case Rect(w, _):
+		_ = w
+	default:
+	}
+
+	match   x := s;   x {
+	case Empty, Unit():
+	case Circle(_),Rect(_,_):
+	}
+
+	match -match {
+	case Empty:
+	}
+
+	match Shape.Circle(1) {
+	case Circle(r): // a comment
+		_ = r
+	default:
+		// nothing
+	}
+
+	match = 3
+	match++
+	match, _ = 1, 2
+	match[0] = 1
+	match(1)
+	match <- 1
+	match.foo()
+	match = enum.match
+match:
+	for {
+		break match
+	}
+	_ = match
+	_ = enum
+}

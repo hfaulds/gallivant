@@ -611,8 +611,8 @@ func (x *EnumType) End() token.Pos {
 	}
 	return x.Enum + 4 // len("enum")
 }
-func (x *MapType) End() token.Pos       { return x.Value.End() }
-func (x *ChanType) End() token.Pos      { return x.Value.End() }
+func (x *MapType) End() token.Pos  { return x.Value.End() }
+func (x *ChanType) End() token.Pos { return x.Value.End() }
 
 // exprNode() ensures that only expression/type nodes can be
 // assigned to an Expr.

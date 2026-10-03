@@ -198,6 +198,21 @@ func (r *reader) filterType(parent *namedType, typ ast.Expr) {
 		if r.filterFieldList(parent, t.Methods, t) {
 			t.Incomplete = true
 		}
+	case *ast.EnumType:
+		// Keep exported variants only and filter their payload types.
+		list := t.Variants
+		j := 0
+		for _, v := range list {
+			if token.IsExported(v.Name.Name) {
+				r.filterParamList(v.Params)
+				list[j] = v
+				j++
+			}
+		}
+		if j < len(list) {
+			t.Incomplete = true
+		}
+		t.Variants = list[0:j]
 	case *ast.MapType:
 		r.filterType(nil, t.Key)
 		r.filterType(nil, t.Value)

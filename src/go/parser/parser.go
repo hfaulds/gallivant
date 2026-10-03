@@ -517,9 +517,15 @@ func (p *parser) parseExprListFrom(x0 ast.Expr) (list []ast.Expr) {
 }
 
 func (p *parser) parseList(inRhs bool) []ast.Expr {
+	return p.parseListFrom(nil, inRhs)
+}
+
+// parseListFrom is like parseList, but if x0 is not nil it is used as the
+// already parsed first expression of the list.
+func (p *parser) parseListFrom(x0 ast.Expr, inRhs bool) []ast.Expr {
 	old := p.inRhs
 	p.inRhs = inRhs
-	list := p.parseExprList()
+	list := p.parseExprListFrom(x0)
 	p.inRhs = old
 	return list
 }
@@ -2002,11 +2008,17 @@ const (
 // assignment with a right-hand side that is a single unary expression of
 // the form "range x". No guarantees are given for the left-hand side.
 func (p *parser) parseSimpleStmt(mode int) (ast.Stmt, bool) {
+	return p.parseSimpleStmtFrom(nil, mode)
+}
+
+// parseSimpleStmtFrom is like parseSimpleStmt, but if x0 is not nil it is
+// used as the already parsed first expression of the statement.
+func (p *parser) parseSimpleStmtFrom(x0 ast.Expr, mode int) (ast.Stmt, bool) {
 	if p.trace {
 		defer un(trace(p, "SimpleStmt"))
 	}
 
-	x := p.parseList(false)
+	x := p.parseListFrom(x0, false)
 
 	switch p.tok {
 	case
@@ -2361,6 +2373,92 @@ func (p *parser) parseSwitchStmt() ast.Stmt {
 	return &ast.SwitchStmt{Switch: pos, Init: s1, Tag: p.makeExpr(s2, "switch expression"), Body: body}
 }
 
+// parseMatchStmtOrSimple is called at the start of a statement that begins
+// with the identifier "match", which has not yet been consumed. "match" is a
+// contextual keyword (Gallivant): it starts a match statement only when it is
+// followed by a token that can begin an expression but could never follow an
+// identifier at the start of a valid Go statement. Otherwise "match" is an
+// ordinary identifier and the statement is parsed as usual.
+func (p *parser) parseMatchStmtOrSimple() ast.Stmt {
+	if p.trace {
+		defer un(trace(p, "MatchStmtOrSimple"))
+	}
+
+	pos := p.pos
+	ident := p.parseIdent() // consume "match"
+
+	if p.startsMatchSubject() {
+		return p.parseMatchStmt(pos)
+	}
+
+	// "match" is an identifier: continue as parseStmt would for a statement
+	// starting with an identifier.
+	x := p.parseBinaryExpr(p.parsePrimaryExpr(ident), token.LowestPrec+1)
+	s, _ := p.parseSimpleStmtFrom(x, labelOk)
+	if _, isLabeledStmt := s.(*ast.LabeledStmt); !isLabeledStmt {
+		p.expectSemi()
+	}
+	return s
+}
+
+// startsMatchSubject reports whether the current token, which follows the
+// identifier "match" at the start of a statement, can only be the start of a
+// match subject expression. Tokens such as "(", "[", "<-", ".", "=", ":=" and
+// "," keep their Go meaning after an identifier and are excluded.
+func (p *parser) startsMatchSubject() bool {
+	switch p.tok {
+	case token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING,
+		token.FUNC, token.STRUCT, token.MAP, token.CHAN, token.INTERFACE,
+		token.MUL, token.AND, token.ADD, token.SUB, token.NOT, token.XOR:
+		return true
+	}
+	return false
+}
+
+// MatchStmt = "match" [ SimpleStmt ";" ] Expression "{" { CaseClause } "}" .
+//
+// The "match" keyword has already been consumed; pos is its position.
+func (p *parser) parseMatchStmt(pos token.Pos) ast.Stmt {
+	if p.trace {
+		defer un(trace(p, "MatchStmt"))
+	}
+
+	var s1, s2 ast.Stmt
+	if p.tok != token.LBRACE {
+		prevLev := p.exprLev
+		p.exprLev = -1
+		if p.tok != token.SEMICOLON {
+			s2, _ = p.parseSimpleStmt(basic)
+		}
+		if p.tok == token.SEMICOLON {
+			p.next()
+			s1 = s2
+			s2 = nil
+			if p.tok != token.LBRACE {
+				s2, _ = p.parseSimpleStmt(basic)
+			}
+		}
+		p.exprLev = prevLev
+	}
+
+	tag := p.makeExpr(s2, "match expression")
+	if tag == nil {
+		p.error(p.pos, "missing expression in match statement")
+		tag = &ast.BadExpr{From: p.pos, To: p.pos}
+	}
+
+	lbrace := p.expect(token.LBRACE)
+	var list []ast.Stmt
+	for p.tok == token.CASE || p.tok == token.DEFAULT {
+		list = append(list, p.parseCaseClause())
+	}
+	rbrace := p.expect(token.RBRACE)
+	p.expectSemi()
+	body := &ast.BlockStmt{Lbrace: lbrace, List: list, Rbrace: rbrace}
+
+	return &ast.MatchStmt{Match: pos, Init: s1, Tag: tag, Body: body}
+}
+
 func (p *parser) parseCommClause() *ast.CommClause {
 	if p.trace {
 		defer un(trace(p, "CommClause"))
@@ -2528,6 +2626,10 @@ func (p *parser) parseStmt() (s ast.Stmt) {
 		token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING, token.FUNC, token.LPAREN, // operands
 		token.LBRACK, token.STRUCT, token.MAP, token.CHAN, token.INTERFACE, // composite types
 		token.ADD, token.SUB, token.MUL, token.AND, token.XOR, token.ARROW, token.NOT: // unary operators
+		if p.tok == token.IDENT && p.lit == "match" {
+			s = p.parseMatchStmtOrSimple()
+			break
+		}
 		s, _ = p.parseSimpleStmt(labelOk)
 		// because of the required look-ahead, labeled statements are
 		// parsed by parseSimpleStmt - don't expect a semicolon after
@@ -2675,7 +2777,7 @@ func (p *parser) parseGenericType(spec *ast.TypeSpec, openPos token.Pos, name0 *
 		spec.Assign = p.pos
 		p.next()
 	}
-	spec.Type = p.parseType()
+	spec.Type = p.parseDeclType()
 }
 
 func (p *parser) parseTypeSpec(doc *ast.CommentGroup, _ token.Token, _ int) ast.Spec {
@@ -2745,7 +2847,7 @@ func (p *parser) parseTypeSpec(doc *ast.CommentGroup, _ token.Token, _ int) ast.
 			spec.Assign = p.pos
 			p.next()
 		}
-		spec.Type = p.parseType()
+		spec.Type = p.parseDeclType()
 	}
 
 	spec.Comment = p.expectSemi()
