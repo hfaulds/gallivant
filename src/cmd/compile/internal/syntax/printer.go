@@ -678,6 +678,11 @@ func (p *printer) printRawNode(n Node) {
 			p.print(n.LocalPkgName, blank)
 		}
 		p.print(n.Path)
+		if n.Caps != nil {
+			p.print(blank, _Name, "with", blank, _Lbrack)
+			p.printExprList(n.Caps)
+			p.print(_Rbrack)
+		}
 
 	case *ConstDecl:
 		if n.Group == nil {

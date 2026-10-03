@@ -17,14 +17,6 @@ import (
 	"cmd/compile/internal/types2"
 )
 
-// capsDirective records a trailing //caps: comment seen while parsing a
-// file. It is matched to the import declaration on the same line by
-// checkCaps.
-type capsDirective struct {
-	pos  syntax.Pos
-	text string // text after "caps:"
-}
-
 // checkCaps implements Gallivant's import capability check for the
 // package being compiled (see doc/gallivant/caps.md).
 //
@@ -33,7 +25,7 @@ type capsDirective struct {
 // export data of every non-standard-library import, stores the result in
 // caps.Local so that it is written to this package's export data, and
 // finally reports every import of a package from another module whose
-// //caps: grant does not cover that package's effective capabilities.
+// "with [...]" grant does not cover that package's effective capabilities.
 func checkCaps(m posMap, noders []*noder, pkg *types2.Package, info *types2.Info) {
 	if base.Flag.Std {
 		// Standard-library packages are never checked and never contribute
@@ -73,18 +65,6 @@ func checkCaps(m posMap, noders []*noder, pkg *types2.Package, info *types2.Info
 	var order []string // import paths in first-seen order, for deterministic diagnostics
 
 	for _, p := range noders {
-		// Index this file's //caps: directives by line.
-		directives := map[uint]*capsDirective{}
-		for i := range p.capsDirectives {
-			d := &p.capsDirectives[i]
-			if prev, dup := directives[d.pos.Line()]; dup {
-				base.ErrorfAt(m.makeXPos(d.pos), 0, "duplicate //caps: directive (previous at %s)", base.FmtPos(m.makeXPos(prev.pos)))
-				continue
-			}
-			directives[d.pos.Line()] = d
-		}
-		used := map[*capsDirective]bool{}
-
 		for _, decl := range p.file.DeclList {
 			imp, ok := decl.(*syntax.ImportDecl)
 			if !ok || imp.Path == nil || imp.Path.Bad {
@@ -110,21 +90,13 @@ func checkCaps(m posMap, noders []*noder, pkg *types2.Package, info *types2.Info
 				order = append(order, path)
 			}
 
-			if d := directives[imp.Path.Pos().Line()]; d != nil {
-				used[d] = true
-				granted, bad := caps.ParseList(d.text)
-				for _, c := range granted {
+			for _, x := range imp.Caps {
+				name := syntax.String(x)
+				if c, ok := caps.Parse(name); ok {
 					site.granted.Add(c)
+				} else {
+					base.ErrorfAt(m.makeXPos(x.Pos()), 0, "unknown capability %s (want one of %s)", name, caps.FormatList(caps.All()))
 				}
-				for _, tok := range bad {
-					base.ErrorfAt(m.makeXPos(d.pos), 0, "unknown capability token %q in //caps: directive", tok)
-				}
-			}
-		}
-
-		for i := range p.capsDirectives {
-			if d := &p.capsDirectives[i]; !used[d] && directives[d.pos.Line()] == d {
-				base.ErrorfAt(m.makeXPos(d.pos), 0, "misplaced //caps: directive; must be a trailing comment on an import")
 			}
 		}
 

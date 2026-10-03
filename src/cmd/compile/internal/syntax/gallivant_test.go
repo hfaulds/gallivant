@@ -69,3 +69,64 @@ func f(s Shape, match int, enum enum, ch chan int) {
 		}
 	}
 }
+
+func TestGallivantImportCaps(t *testing.T) {
+	const src = `package p
+
+import "fmt" with [file.write]
+import (
+	"a" with [file.read, net]
+	b "b" with [
+		exec,
+		env,
+	]
+	"c" with []
+	"d"
+	with "e"
+)
+
+var with int
+`
+	f, err := Parse(nil, strings.NewReader(src), func(err error) { t.Error(err) }, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, d := range f.DeclList {
+		imp, ok := d.(*ImportDecl)
+		if !ok {
+			continue
+		}
+		var b strings.Builder
+		Fprint(&b, imp, ShortForm)
+		s := b.String()
+		if imp.Caps != nil && EndPos(imp) != imp.Rbrack {
+			t.Errorf("%s: EndPos = %v, want Rbrack %v", s, EndPos(imp), imp.Rbrack)
+		}
+		got = append(got, s)
+	}
+	want := []string{
+		`import "fmt" with [file.write]`,
+		`"a" with [file.read, net]`,
+		`b "b" with [exec, env]`,
+		`"c" with []`,
+		`"d"`,
+		`with "e"`,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
+	for _, bad := range []string{
+		`package p; import "a" with file.read`,
+		`package p; import "a" with [file.]`,
+		`package p; import "a" with ["net"]`,
+		`package p; import "a" with [net] with [env]`,
+	} {
+		var errs int
+		Parse(nil, strings.NewReader(bad), func(error) { errs++ }, nil, 0)
+		if errs == 0 {
+			t.Errorf("%s: no syntax error", bad)
+		}
+	}
+}

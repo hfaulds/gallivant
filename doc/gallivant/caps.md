@@ -8,21 +8,55 @@ the package fails to compile.
 
 ```go
 import (
-    "github.com/example/logger" //caps:file:write
+    "github.com/example/logger" with [file.write]
 )
 ```
 
 ```
-main.go:5:2: import "github.com/example/logger" uses capabilities [net, file:write] but is only granted [file:write]
+main.go:5:2: import "github.com/example/logger" uses capabilities [file.write, net] but is only granted [file.write]
 	[net] github.com/example/logger/transport.go:12: net.Dial
 ```
+
+## Syntax
+
+A grant is part of the import spec:
+
+```
+ImportSpec = [ "." | PackageName ] ImportPath [ CapGrant ] .
+CapGrant   = "with" "[" [ Capability { "," Capability } [ "," ] ] "]" .
+Capability = identifier { "." identifier } .
+```
+
+```go
+import "example.com/a" with [net]
+
+import (
+    log "github.com/example/logger" with [file.write, net]
+    "example.com/b" with [
+        exec,
+        env,
+    ]
+    "example.com/c" with [] // explicitly granted nothing
+)
+```
+
+`with` is a contextual keyword: in Go only `;` can follow an import path, so
+an identifier there is unambiguous, and code that uses `with` as an
+identifier (including as an import name) keeps compiling. A grant on a
+standard-library import or on a package in the same module is allowed and
+ignored. If the same path is imported more than once in a package, the
+grants are combined.
+
+`gofmt` formats grants and sorts imports with single-line grants as usual.
+An import whose grant spans several lines is not moved, and the imports on
+either side of it are sorted separately.
 
 ## Capabilities
 
 | Capability | Triggered by |
 | --- | --- |
-| `file:read` | `os.Open`, `os.ReadFile`, `os.Stat`, `filepath.Walk`, … |
-| `file:write` | `os.Create`, `os.WriteFile`, `os.Remove`, `os.Mkdir*`, `fmt.Print*`, `log.*`, … |
+| `file.read` | `os.Open`, `os.ReadFile`, `os.Stat`, `filepath.Walk`, … |
+| `file.write` | `os.Create`, `os.WriteFile`, `os.Remove`, `os.Mkdir*`, `fmt.Print*`, `log.*`, … |
 | `net` | `net.Dial*`, `net.Listen*`, `net/http.Get`, `(*http.Client).Do`, `crypto/tls.Dial`, … |
 | `exec` | `os/exec.Command`, `syscall.Exec`, `os.StartProcess`, … |
 | `env` | `os.Getenv`, `os.Setenv`, `os.Environ`, `os.UserHomeDir`, … |
@@ -42,8 +76,8 @@ effective(P)  = direct(P) ∪ transitive(P)
 
 and records `effective(P)`, P's module path and the origin of each capability
 in P's export data. When compiling P, each import spec of a package from a
-*different module* is compared against the granted set parsed from its
-`//caps:` comment. Missing capabilities are compile errors.
+*different module* is compared against its `with [...]` grant. Missing
+capabilities are compile errors.
 
 The trust boundary is the module edge:
 

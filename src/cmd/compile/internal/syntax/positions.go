@@ -133,6 +133,9 @@ func EndPos(n Node) Pos {
 
 		// declarations
 		case *ImportDecl:
+			if n.Caps != nil {
+				return n.Rbrack
+			}
 			m = n.Path
 		case *ConstDecl:
 			if n.Values != nil {

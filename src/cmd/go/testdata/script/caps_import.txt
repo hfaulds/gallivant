@@ -1,6 +1,7 @@
 # Gallivant import capabilities (doc/gallivant/caps.md): the compiler
-# enforces //caps: directives at module boundaries, using the effective
-# capability set each package records in its export data.
+# enforces the capability grants on imports ("with [...]") at module
+# boundaries, using the effective capability set each package records in
+# its export data.
 
 [short] skip 'compiles several modules'
 
@@ -16,10 +17,10 @@ stderr 'compile.* -p fmt .* -std'
 # required set and where each missing capability originates, including
 # capabilities inherited transitively from the dependency's own imports.
 ! go build -o $devnull ./bad
-stderr '^(\./)?bad[/\\]main\.go:7:2: import "example\.com/dep" uses capabilities \[file:write, net\] but is only granted \[file:write\]$'
+stderr '^(\./)?bad[/\\]main\.go:7:2: import "example\.com/dep" uses capabilities \[file\.write, net\] but is only granted \[file\.write\]$'
 stderr '^\t\[net\] example\.com/dep/dep\.go:6: import "example\.com/dep2"$'
 stderr '^\t\[net\] example\.com/dep2/dep2\.go:6: net\.Dial$'
-! stderr '^\t\[file:write\]'
+! stderr '^\t\[file\.write\]'
 
 # Granting the full set fixes it. Standard-library imports and imports of
 # packages in the same module (even ones that read the environment) need
@@ -27,13 +28,13 @@ stderr '^\t\[net\] example\.com/dep2/dep2\.go:6: net\.Dial$'
 go build -o $devnull ./ok
 go vet ./ok
 
-# Unknown capability tokens are rejected.
+# Unknown capabilities are rejected.
 ! go build -o $devnull ./badtoken
-stderr '^(\./)?badtoken[/\\]main\.go:7:22: unknown capability token "bogus" in //caps: directive$'
+stderr '^(\./)?badtoken[/\\]main\.go:7:43: unknown capability bogus \(want one of \[.*\]\)$'
 
-# A //caps: comment that is not trailing an import is an error.
-! go build -o $devnull ./misplaced
-stderr '^(\./)?misplaced[/\\]main\.go:9:3: misplaced //caps: directive; must be a trailing comment on an import$'
+# A grant is a bracketed list.
+! go build -o $devnull ./unbracketed
+stderr '^(\./)?unbracketed[/\\]main\.go:6:25: expected ''\['', found net$'
 
 -- go.mod --
 module example.com/app
@@ -61,7 +62,7 @@ import (
 	"fmt"
 
 	"example.com/app/internal/helper"
-	"example.com/dep" //caps:file:write
+	"example.com/dep" with [file.write]
 )
 
 func main() {
@@ -74,7 +75,7 @@ import (
 	"fmt"
 
 	"example.com/app/internal/helper"
-	"example.com/dep" //caps:file:write,net
+	"example.com/dep" with [file.write, net]
 )
 
 func main() {
@@ -87,22 +88,21 @@ import (
 	"fmt"
 
 	"example.com/app/internal/helper"
-	"example.com/dep" //caps:file:write,net,bogus
+	"example.com/dep" with [file.write, net, bogus]
 )
 
 func main() {
 	fmt.Println(helper.Home(), dep.Save("x"))
 }
--- misplaced/main.go --
+-- unbracketed/main.go --
 package main
 
 import (
 	"fmt"
 
-	"example.com/dep" //caps:file:write,net
+	"example.com/dep" with net
 )
 
-//caps:net
 func main() {
 	fmt.Println(dep.Save("x"))
 }
@@ -120,7 +120,7 @@ package dep
 import (
 	"os"
 
-	"example.com/dep2" //caps:net
+	"example.com/dep2" with [net]
 )
 
 func Save(s string) error {

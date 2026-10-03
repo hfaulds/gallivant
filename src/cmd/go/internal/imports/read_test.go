@@ -70,6 +70,39 @@ var readImportsTests = []readTest{
 		"\ufeff𝔻" + `package p; import "x";ℙvar x = 1`,
 		"",
 	},
+	{
+		`package p
+		import "x" with [file.read, net]
+		import (
+			"y" with [
+				exec, // comment
+			]
+			with "z"
+			"w" with []
+		)
+		ℙvar x = 1
+		`,
+		"",
+	},
+}
+
+func TestReadImportsCapGrant(t *testing.T) {
+	const src = `package p
+import "x" with [file.read, net]
+import (
+	"y" with [exec]
+	with "z"
+	"w" with []
+)
+var x = 1
+`
+	var imports []string
+	if _, err := ReadImports(strings.NewReader(src), true, &imports); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join(imports, " "), `"x" "y" "z" "w"`; got != want {
+		t.Errorf("imports = %s, want %s", got, want)
+	}
 }
 
 var readCommentsTests = []readTest{
@@ -167,6 +200,10 @@ func TestReadComments(t *testing.T) {
 }
 
 var readFailuresTests = []readTest{
+	{
+		`package p; import "x" without [net]`,
+		"syntax error",
+	},
 	{
 		`package`,
 		"syntax error",

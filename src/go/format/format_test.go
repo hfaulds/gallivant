@@ -185,3 +185,52 @@ func TestPartial(t *testing.T) {
 		}
 	}
 }
+
+// Gallivant: capability grants are formatted, and imports with single-line
+// grants are sorted, while a multi-line grant keeps its place and layout.
+func TestSourceCapGrant(t *testing.T) {
+	const src = `package p
+
+import "fmt"   with [ file.write ]
+
+import (
+	"z"   with [ net ,file.read]
+	"a" with [
+		exec,
+		env, // why
+	]
+	"m"
+	with "w"
+	"a" with [net]
+)
+`
+	const want = `package p
+
+import "fmt" with [file.write]
+
+import (
+	"z" with [net, file.read]
+	"a" with [
+		exec,
+		env, // why
+	]
+	"a" with [net]
+	"m"
+	with "w"
+)
+`
+	got, err := Source([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	again, err := Source(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(again) != string(got) {
+		t.Errorf("not idempotent:\n%s", again)
+	}
+}

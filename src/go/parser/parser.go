@@ -2713,6 +2713,12 @@ func (p *parser) parseImportSpec(doc *ast.CommentGroup, _ token.Token, _ int) as
 		p.error(pos, "missing import path")
 		p.advance(exprEnd)
 	}
+	// Gallivant: "with" is a contextual keyword. Only ";" can follow an
+	// import path in Go, so an identifier here is unambiguous.
+	var caps *ast.CapGrant
+	if p.tok == token.IDENT && p.lit == "with" {
+		caps = p.parseCapGrant()
+	}
 	comment := p.expectSemi()
 
 	// collect imports
@@ -2720,11 +2726,40 @@ func (p *parser) parseImportSpec(doc *ast.CommentGroup, _ token.Token, _ int) as
 		Doc:     doc,
 		Name:    ident,
 		Path:    &ast.BasicLit{ValuePos: pos, ValueEnd: end, Kind: token.STRING, Value: path},
+		Caps:    caps,
 		Comment: comment,
 	}
 	p.imports = append(p.imports, spec)
 
 	return spec
+}
+
+// parseCapGrant parses an import's capability grant (Gallivant):
+//
+//	CapGrant   = "with" "[" [ Capability { "," Capability } [ "," ] ] "]" .
+//	Capability = identifier { "." identifier } .
+func (p *parser) parseCapGrant() *ast.CapGrant {
+	if p.trace {
+		defer un(trace(p, "CapGrant"))
+	}
+
+	g := &ast.CapGrant{With: p.pos}
+	p.next() // "with"
+	g.Lbrack = p.expect(token.LBRACK)
+	for p.tok != token.RBRACK && p.tok != token.EOF {
+		var x ast.Expr = p.parseIdent()
+		for p.tok == token.PERIOD {
+			p.next()
+			x = &ast.SelectorExpr{X: x, Sel: p.parseIdent()}
+		}
+		g.List = append(g.List, x)
+		if !p.atComma("capability list", token.RBRACK) {
+			break
+		}
+		p.next()
+	}
+	g.Rbrack = p.expectClosing(token.RBRACK, "capability list")
+	return g
 }
 
 func (p *parser) parseValueSpec(doc *ast.CommentGroup, keyword token.Token, iota int) ast.Spec {

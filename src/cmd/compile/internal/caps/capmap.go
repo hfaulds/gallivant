@@ -9,7 +9,7 @@
 // inherits the effective capabilities of every non-standard-library
 // package it imports. The effective set is recorded in export data (see
 // Fact) and, at every import site that crosses a module boundary, is
-// compared against the capabilities granted by a trailing //caps: comment.
+// compared against the capabilities granted by the import's "with [...]" clause.
 //
 // See doc/gallivant/caps.md for the design.
 package caps
@@ -19,15 +19,15 @@ import (
 	"strings"
 )
 
-// Cap is a single capability token as it appears in a //caps: directive.
+// Cap is a single capability as it appears in an import's "with [...]" grant.
 type Cap string
 
 // String implements fmt.Stringer.
 func (c Cap) String() string { return string(c) }
 
 const (
-	CapFileRead  Cap = "file:read"
-	CapFileWrite Cap = "file:write"
+	CapFileRead  Cap = "file.read"
+	CapFileWrite Cap = "file.write"
 	CapNet       Cap = "net"
 	CapExec      Cap = "exec"
 	CapEnv       Cap = "env"
@@ -306,7 +306,7 @@ func All() []Cap {
 	}
 }
 
-// Parse parses a single capability token (e.g. "file:write"). Surrounding
+// Parse parses a single capability token (e.g. "file.write"). Surrounding
 // whitespace is trimmed. Returns ok=false for unknown tokens.
 func Parse(s string) (Cap, bool) {
 	switch Cap(strings.TrimSpace(s)) {
@@ -324,28 +324,6 @@ func Parse(s string) (Cap, bool) {
 		return CapUnsafe, true
 	}
 	return "", false
-}
-
-// ParseList parses a comma-separated list of capability tokens (the body
-// after "//caps:"). It returns the successfully parsed caps and the slice
-// of raw (trimmed) tokens that failed to parse so the caller can emit one
-// diagnostic per bad token. Empty tokens (e.g. trailing commas) are
-// ignored.
-func ParseList(s string) ([]Cap, []string) {
-	var caps []Cap
-	var bad []string
-	for _, raw := range strings.Split(s, ",") {
-		tok := strings.TrimSpace(raw)
-		if tok == "" {
-			continue
-		}
-		if c, ok := Parse(tok); ok {
-			caps = append(caps, c)
-		} else {
-			bad = append(bad, tok)
-		}
-	}
-	return caps, bad
 }
 
 // RequiredOnImport returns the caps charged for importing pkgPath

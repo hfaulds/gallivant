@@ -1,15 +1,23 @@
+pkg go/ast, method (*CapGrant) End() token.Pos
+pkg go/ast, method (*CapGrant) Pos() token.Pos
 pkg go/ast, method (*EnumType) End() token.Pos
 pkg go/ast, method (*EnumType) Pos() token.Pos
 pkg go/ast, method (*MatchStmt) End() token.Pos
 pkg go/ast, method (*MatchStmt) Pos() token.Pos
 pkg go/ast, method (*Variant) End() token.Pos
 pkg go/ast, method (*Variant) Pos() token.Pos
+pkg go/ast, type CapGrant struct
+pkg go/ast, type CapGrant struct, Lbrack token.Pos
+pkg go/ast, type CapGrant struct, List []Expr
+pkg go/ast, type CapGrant struct, Rbrack token.Pos
+pkg go/ast, type CapGrant struct, With token.Pos
 pkg go/ast, type EnumType struct
 pkg go/ast, type EnumType struct, Enum token.Pos
 pkg go/ast, type EnumType struct, Incomplete bool
 pkg go/ast, type EnumType struct, Lbrace token.Pos
 pkg go/ast, type EnumType struct, Rbrace token.Pos
 pkg go/ast, type EnumType struct, Variants []*Variant
+pkg go/ast, type ImportSpec struct, Caps *CapGrant
 pkg go/ast, type MatchStmt struct
 pkg go/ast, type MatchStmt struct, Body *BlockStmt
 pkg go/ast, type MatchStmt struct, Init Stmt
@@ -52,8 +60,8 @@ pkg option, func IsNone[$0 interface{}](Option[$0]) bool
 pkg option, func IsSome[$0 interface{}](Option[$0]) bool
 pkg option, func Map[$0 interface{}, $1 interface{}](Option[$0], func($0) $1) Option[$1]
 pkg option, func Must[$0 interface{}](Option[$0]) $0
-pkg option, func Or[$0 interface{}](Option[$0], $0) $0
 pkg option, func OrZero[$0 interface{}](Option[$0]) $0
+pkg option, func Or[$0 interface{}](Option[$0], $0) $0
 pkg result, func IsOk[$0 interface{}](Result[$0]) bool
 pkg result, func Map[$0 interface{}, $1 interface{}](Result[$0], func($0) $1) Result[$1]
 pkg result, func Must[$0 interface{}](Result[$0]) $0

@@ -15,8 +15,8 @@ func TestParse(t *testing.T) {
 		want Cap
 		ok   bool
 	}{
-		{"file:read", CapFileRead, true},
-		{"file:write", CapFileWrite, true},
+		{"file.read", CapFileRead, true},
+		{"file.write", CapFileWrite, true},
 		{"net", CapNet, true},
 		{"exec", CapExec, true},
 		{"env", CapEnv, true},
@@ -31,28 +31,6 @@ func TestParse(t *testing.T) {
 		if got != c.want || ok != c.ok {
 			t.Errorf("Parse(%q) = (%q,%v), want (%q,%v)", c.in, got, ok, c.want, c.ok)
 		}
-	}
-}
-
-func TestParseList(t *testing.T) {
-	caps, bad := ParseList("file:read, net , bogus,  ,exec,nope")
-	wantCaps := []Cap{CapFileRead, CapNet, CapExec}
-	wantBad := []string{"bogus", "nope"}
-	if !reflect.DeepEqual(caps, wantCaps) {
-		t.Errorf("caps = %v, want %v", caps, wantCaps)
-	}
-	if !reflect.DeepEqual(bad, wantBad) {
-		t.Errorf("bad = %v, want %v", bad, wantBad)
-	}
-
-	caps, bad = ParseList("")
-	if caps != nil || bad != nil {
-		t.Errorf("ParseList(\"\") = (%v,%v), want (nil,nil)", caps, bad)
-	}
-
-	caps, bad = ParseList("  ,  ,  ")
-	if caps != nil || bad != nil {
-		t.Errorf("ParseList whitespace-only = (%v,%v), want (nil,nil)", caps, bad)
 	}
 }
 
@@ -222,7 +200,7 @@ func TestFormatList(t *testing.T) {
 	if got := FormatList(nil); got != "[]" {
 		t.Errorf("FormatList(nil) = %q", got)
 	}
-	if got := FormatList([]Cap{CapFileWrite, CapNet}); got != "[file:write, net]" {
+	if got := FormatList([]Cap{CapFileWrite, CapNet}); got != "[file.write, net]" {
 		t.Errorf("FormatList = %q", got)
 	}
 }
@@ -254,7 +232,7 @@ func TestFactRoundTrip(t *testing.T) {
 		ModulePath: "example.com/mod",
 		Chain: map[string]string{
 			"net":        "example.com/mod/a.go:12: net.Dial",
-			"file:write": "example.com/mod/a.go:7: import \"example.com/dep\" → example.com/dep/b.go:3: os.Create",
+			"file.write": "example.com/mod/a.go:7: import \"example.com/dep\" → example.com/dep/b.go:3: os.Create",
 		},
 	}
 	var c codec

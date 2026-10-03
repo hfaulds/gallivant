@@ -33,7 +33,7 @@ type Fact struct {
 // ChainSep separates the steps of a Chain entry.
 const ChainSep = " → "
 
-// String renders the fact's capability set, e.g. "[file:write, net]".
+// String renders the fact's capability set, e.g. "[file.write, net]".
 func (f *Fact) String() string {
 	if f == nil {
 		return "[]"

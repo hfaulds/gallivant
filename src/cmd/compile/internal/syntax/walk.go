@@ -74,6 +74,7 @@ func (w walker) node(n Node) {
 			w.node(n.LocalPkgName)
 		}
 		w.node(n.Path)
+		w.exprList(n.Caps)
 
 	case *ConstDecl:
 		w.nameList(n.NameList)

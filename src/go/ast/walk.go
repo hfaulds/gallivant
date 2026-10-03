@@ -163,6 +163,9 @@ func Walk(v Visitor, node Node) {
 			Walk(v, variant)
 		}
 
+	case *CapGrant:
+		walkList(v, n.List)
+
 	case *Variant:
 		if n.Doc != nil {
 			Walk(v, n.Doc)
@@ -304,6 +307,9 @@ func Walk(v Visitor, node Node) {
 			Walk(v, n.Name)
 		}
 		Walk(v, n.Path)
+		if n.Caps != nil {
+			Walk(v, n.Caps)
+		}
 		if n.Comment != nil {
 			Walk(v, n.Comment)
 		}

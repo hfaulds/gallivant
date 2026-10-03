@@ -31,7 +31,9 @@ func SortImports(fset *token.FileSet, f *File) {
 		i := 0
 		specs := d.Specs[:0]
 		for j, s := range d.Specs {
-			if j > i && lineAt(fset, s.Pos()) > 1+lineAt(fset, d.Specs[j-1].End()) {
+			// Gallivant: a spec with a capability grant spanning several
+			// lines is never moved, so it forms a run of its own.
+			if j > i && (lineAt(fset, s.Pos()) > 1+lineAt(fset, d.Specs[j-1].End()) || multiLine(fset, s) || multiLine(fset, d.Specs[j-1])) {
 				// j begins a new run. End this one.
 				specs = append(specs, sortSpecs(fset, f, d, d.Specs[i:j])...)
 				i = j
@@ -92,11 +94,19 @@ func importComment(s Spec) string {
 }
 
 // collapse indicates whether prev may be removed, leaving only next.
+// multiLine reports whether s is an import spec whose capability grant
+// (Gallivant) spans several lines.
+func multiLine(fset *token.FileSet, s Spec) bool {
+	caps := s.(*ImportSpec).Caps
+	return caps != nil && lineAt(fset, s.Pos()) != lineAt(fset, caps.Rbrack)
+}
+
 func collapse(prev, next Spec) bool {
 	if importPath(next) != importPath(prev) || importName(next) != importName(prev) {
 		return false
 	}
-	return prev.(*ImportSpec).Comment == nil
+	// Gallivant: never drop a duplicate's capability grant.
+	return prev.(*ImportSpec).Comment == nil && prev.(*ImportSpec).Caps == nil && next.(*ImportSpec).Caps == nil
 }
 
 type posSpan struct {
@@ -219,6 +229,21 @@ func sortSpecs(fset *token.FileSet, f *File, d *GenDecl, specs []Spec) []Spec {
 	// Fix up comment positions
 	for i, s := range specs {
 		s := s.(*ImportSpec)
+		if s.Caps != nil {
+			// Gallivant: the grant fits on one line (see multiLine), so
+			// move it with the import path.
+			s.Caps.With = pos[i].Start
+			s.Caps.Lbrack = pos[i].Start
+			s.Caps.Rbrack = pos[i].Start
+			for _, x := range s.Caps.List {
+				Inspect(x, func(n Node) bool {
+					if id, ok := n.(*Ident); ok {
+						id.NamePos = pos[i].Start
+					}
+					return true
+				})
+			}
+		}
 		if s.Name != nil {
 			s.Name.NamePos = pos[i].Start
 		}

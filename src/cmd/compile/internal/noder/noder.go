@@ -101,10 +101,6 @@ type noder struct {
 	linknames  []linkname
 	pragcgobuf [][]string
 	err        chan syntax.Error
-
-	// capsDirectives holds the //caps: directives seen in file, in
-	// source order (Gallivant import capabilities; see caps.go).
-	capsDirectives []capsDirective
 }
 
 // linkname records a //go:linkname or //go:linknamestd directive.
@@ -227,13 +223,6 @@ func (p *noder) checkUnusedDuringParse(pragma *pragmas) {
 
 // pragma is called concurrently if files are parsed concurrently.
 func (p *noder) pragma(pos syntax.Pos, blankLine bool, text string, old syntax.Pragma) syntax.Pragma {
-	if strings.HasPrefix(text, "caps:") {
-		// //caps: is a trailing comment on an import line; record it for
-		// checkCaps and leave the pragma state untouched.
-		p.capsDirectives = append(p.capsDirectives, capsDirective{pos, text[len("caps:"):]})
-		return old
-	}
-
 	pragma, _ := old.(*pragmas)
 	if pragma == nil {
 		pragma = new(pragmas)

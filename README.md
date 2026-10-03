@@ -45,12 +45,12 @@ o := option.FromOK(v, ok) // Option[V]: Some(v) if ok, else None
 
 **Import capabilities** ([design](doc/gallivant/caps.md)).
 A dependency from another module that uses the filesystem, network, process
-execution, environment or `unsafe` must be granted that capability with a
-`//caps:` comment at the import site. The compiler enforces it.
+execution, environment or `unsafe` must be granted that capability at the
+import site. The compiler enforces it.
 
 ```go
 import (
-	"github.com/example/logger" //caps:file:write
+	"github.com/example/logger" with [file.write]
 )
 ```
 

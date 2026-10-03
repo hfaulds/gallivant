@@ -1768,6 +1768,17 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 			p.print(blank)
 		}
 		p.expr(sanitizeImportPath(s.Path))
+		if s.Caps != nil {
+			// Gallivant capability grant.
+			p.print(blank)
+			p.setPos(s.Caps.With)
+			p.print(&ast.Ident{NamePos: s.Caps.With, Name: "with"}, blank)
+			p.setPos(s.Caps.Lbrack)
+			p.print(token.LBRACK)
+			p.exprList(s.Caps.Lbrack, s.Caps.List, 1, commaTerm, s.Caps.Rbrack, false)
+			p.setPos(s.Caps.Rbrack)
+			p.print(token.RBRACK)
+		}
 		p.setComment(s.Comment)
 		p.setPos(s.EndPos)
 

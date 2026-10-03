@@ -74,15 +74,6 @@ func (p *parser) init(file *PosBase, r io.Reader, errh ErrorHandler, pragh Pragm
 				return
 			}
 
-			// caps: directive (Gallivant import capabilities); recorded by the
-			// pragma handler but never attached to a declaration.
-			if strings.HasPrefix(text, "caps:") {
-				if pragh != nil {
-					p.pragma = pragh(p.posAt(line, col+2), p.scanner.blank, text, p.pragma)
-				}
-				return
-			}
-
 			// go: directive (but be conservative and test)
 			if strings.HasPrefix(text, "go:") {
 				if p.top && strings.HasPrefix(msg, "//go:build") {
@@ -557,8 +548,10 @@ func (p *parser) appendGroup(list []Decl, f func(*Group) Decl) []Decl {
 	return list
 }
 
-// ImportSpec = [ "." | PackageName ] ImportPath .
+// ImportSpec = [ "." | PackageName ] ImportPath [ CapGrant ] .
 // ImportPath = string_lit .
+// CapGrant   = "with" "[" [ Capability { "," Capability } [ "," ] ] "]" .
+// Capability = identifier { "." identifier } .
 func (p *parser) importDecl(group *Group) Decl {
 	if trace {
 		defer p.trace("importDecl")()
@@ -588,7 +581,39 @@ func (p *parser) importDecl(group *Group) Decl {
 	}
 	// d.Path.Bad || d.Path.Kind == StringLit
 
+	// Gallivant: "with" is a contextual keyword. Only ";" can follow an
+	// import path in Go, so an identifier here is unambiguous.
+	if p.tok == _Name && p.lit == "with" {
+		p.next()
+		d.Caps = []Expr{} // non-nil: an empty grant is still a grant
+		p.want(_Lbrack)
+		d.Rbrack = p.list("capability list", _Comma, _Rbrack, func() bool {
+			d.Caps = append(d.Caps, p.capability())
+			return false
+		})
+	}
+
 	return d
+}
+
+// capability parses a capability name in an import's "with [...]" grant.
+//
+//	Capability = identifier { "." identifier } .
+func (p *parser) capability() Expr {
+	if trace {
+		defer p.trace("capability")()
+	}
+
+	var x Expr = p.name()
+	for p.tok == _Dot {
+		t := new(SelectorExpr)
+		t.pos = p.pos()
+		p.next()
+		t.X = x
+		t.Sel = p.name()
+		x = t
+	}
+	return x
 }
 
 // ConstSpec = IdentifierList [ [ Type ] "=" ExpressionList ] .

@@ -243,3 +243,62 @@ func TestGallivantMatchErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestGallivantImportCaps(t *testing.T) {
+	const src = `package p
+
+import "fmt" with [file.write]
+import (
+	"a" with [file.read, net]
+	b "b" with [
+		exec,
+		env,
+	]
+	"c" with []
+	"d"
+	with "e"
+)
+
+var with int
+`
+	fset := token.NewFileSet()
+	f, err := ParseFile(fset, "x.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, imp := range f.Imports {
+		s := imp.Path.Value
+		if imp.Caps != nil {
+			var caps []string
+			for _, x := range imp.Caps.List {
+				switch x := x.(type) {
+				case *ast.Ident:
+					caps = append(caps, x.Name)
+				case *ast.SelectorExpr:
+					caps = append(caps, x.X.(*ast.Ident).Name+"."+x.Sel.Name)
+				}
+			}
+			s += " with [" + strings.Join(caps, ", ") + "]"
+			if imp.End() != imp.Caps.Rbrack+1 {
+				t.Errorf("%s: End = %v, want %v", s, imp.End(), imp.Caps.Rbrack+1)
+			}
+		}
+		got = append(got, s)
+	}
+	want := `"fmt" with [file.write]; "a" with [file.read, net]; "b" with [exec, env]; "c" with []; "d"; "e"`
+	if g := strings.Join(got, "; "); g != want {
+		t.Errorf("got  %s\nwant %s", g, want)
+	}
+
+	for _, bad := range []string{
+		`package p; import "a" with file.read`,
+		`package p; import "a" with [file.]`,
+		`package p; import "a" with ["net"]`,
+		`package p; import "a" with [net] with [env]`,
+	} {
+		if _, err := ParseFile(token.NewFileSet(), "", bad, 0); err == nil {
+			t.Errorf("%s: no syntax error", bad)
+		}
+	}
+}

@@ -70,6 +70,20 @@ var readGoInfoTests = []readTest{
 		"\ufeff𝔻" + `package p; import "x";ℙvar x = 1`,
 		"",
 	},
+	{
+		`package p
+		import "x" with [file.read, net]
+		import (
+			"y" with [
+				exec, // comment
+			]
+			with "z"
+			"w" with []
+		)
+		ℙvar x = 1
+		`,
+		"",
+	},
 }
 
 var readCommentsTests = []readTest{

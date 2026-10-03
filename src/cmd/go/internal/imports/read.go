@@ -210,6 +210,32 @@ func (r *importReader) readImport(imports *[]string) {
 		r.readIdent()
 	}
 	r.readString(imports)
+	r.readCapGrant(imports)
+}
+
+// readCapGrant skips the Gallivant capability grant ("with [...]") that may
+// follow an import path. In an import group "with" may instead be the name of
+// the next import, so an identifier that is not followed by "[" is taken as
+// that import's name and the rest of that import is read too.
+func (r *importReader) readCapGrant(imports *[]string) {
+	for r.err == nil && r.peekByte(true) == 'w' {
+		var name []byte
+		for c := r.peekByte(true); isIdent(c); c = r.peekByte(false) {
+			name = append(name, c)
+			r.peek = 0
+		}
+		if r.peekByte(true) != '[' {
+			r.readString(imports) // name was the next import's name
+			continue
+		}
+		if string(name) != "with" {
+			r.syntaxError()
+			return
+		}
+		for r.err == nil && !r.eof && r.nextByte(true) != ']' {
+		}
+		return
+	}
 }
 
 // ReadComments is like io.ReadAll, except that it only reads the leading

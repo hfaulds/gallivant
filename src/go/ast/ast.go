@@ -292,6 +292,22 @@ type Variant struct {
 
 func (v *Variant) Pos() token.Pos { return v.Name.Pos() }
 
+// A CapGrant represents the capabilities granted to an imported package
+// (Gallivant):
+//
+//	"path" with [file.read, net]
+//
+// Each element of List is an *Ident or a *SelectorExpr such as file.read.
+type CapGrant struct {
+	With   token.Pos // position of "with"
+	Lbrack token.Pos // position of "["
+	List   []Expr    // granted capabilities; or nil
+	Rbrack token.Pos // position of "]"
+}
+
+func (g *CapGrant) Pos() token.Pos { return g.With }
+func (g *CapGrant) End() token.Pos { return g.Rbrack + 1 }
+
 func (v *Variant) End() token.Pos {
 	if v.Params != nil {
 		return v.Params.End()
@@ -974,6 +990,7 @@ type (
 		Doc     *CommentGroup // associated documentation; or nil
 		Name    *Ident        // local package name (including "."); or nil
 		Path    *BasicLit     // import path
+		Caps    *CapGrant     // capability grant (Gallivant); or nil
 		Comment *CommentGroup // line comments; or nil
 		EndPos  token.Pos     // end of spec (overrides Path.Pos if nonzero)
 	}
@@ -1014,6 +1031,9 @@ func (s *TypeSpec) Pos() token.Pos  { return s.Name.Pos() }
 func (s *ImportSpec) End() token.Pos {
 	if s.EndPos != 0 {
 		return s.EndPos
+	}
+	if s.Caps != nil {
+		return s.Caps.End()
 	}
 	return s.Path.End()
 }

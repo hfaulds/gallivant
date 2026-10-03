@@ -66,6 +66,8 @@ type (
 		Pragma       Pragma
 		LocalPkgName *Name     // including "."; nil means no rename present
 		Path         *BasicLit // Path.Bad || Path.Kind == StringLit; nil means no path
+		Caps         []Expr    // Gallivant: *Name or *SelectorExpr capabilities granted by "with [...]"; nil means no grant
+		Rbrack       Pos       // position of "]" closing the grant; valid only if Caps != nil
 		decl
 	}
 
