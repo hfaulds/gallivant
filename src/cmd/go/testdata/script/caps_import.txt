@@ -1,0 +1,144 @@
+# Gallivant import capabilities (doc/gallivant/caps.md): the compiler
+# enforces //caps: directives at module boundaries, using the effective
+# capability set each package records in its export data.
+
+[short] skip 'compiles several modules'
+
+# cmd/go passes the module path of the package being compiled to the
+# compiler, but not when compiling the standard library.
+go build -n -a -o $devnull ./ok
+stderr 'compile.* -p main .*-modpath=example\.com/app'
+stderr 'compile.* -p fmt .* -std'
+! stderr 'compile.* -p fmt .*-modpath'
+
+# A dependency from another module that uses more capabilities than its
+# import is granted fails to compile. The diagnostic shows the full
+# required set and where each missing capability originates, including
+# capabilities inherited transitively from the dependency's own imports.
+! go build -o $devnull ./bad
+stderr '^(\./)?bad[/\\]main\.go:7:2: import "example\.com/dep" uses capabilities \[file:write, net\] but is only granted \[file:write\]$'
+stderr '^\t\[net\] example\.com/dep/dep\.go:6: import "example\.com/dep2"$'
+stderr '^\t\[net\] example\.com/dep2/dep2\.go:6: net\.Dial$'
+! stderr '^\t\[file:write\]'
+
+# Granting the full set fixes it. Standard-library imports and imports of
+# packages in the same module (even ones that read the environment) need
+# no grant.
+go build -o $devnull ./ok
+go vet ./ok
+
+# Unknown capability tokens are rejected.
+! go build -o $devnull ./badtoken
+stderr '^(\./)?badtoken[/\\]main\.go:7:22: unknown capability token "bogus" in //caps: directive$'
+
+# A //caps: comment that is not trailing an import is an error.
+! go build -o $devnull ./misplaced
+stderr '^(\./)?misplaced[/\\]main\.go:9:3: misplaced //caps: directive; must be a trailing comment on an import$'
+
+-- go.mod --
+module example.com/app
+
+go 1.27
+
+require (
+	example.com/dep v0.0.0
+	example.com/dep2 v0.0.0
+)
+
+replace example.com/dep => ./dep
+
+replace example.com/dep2 => ./dep2
+-- internal/helper/helper.go --
+package helper
+
+import "os"
+
+func Home() string { return os.Getenv("HOME") }
+-- bad/main.go --
+package main
+
+import (
+	"fmt"
+
+	"example.com/app/internal/helper"
+	"example.com/dep" //caps:file:write
+)
+
+func main() {
+	fmt.Println(helper.Home(), dep.Save("x"))
+}
+-- ok/main.go --
+package main
+
+import (
+	"fmt"
+
+	"example.com/app/internal/helper"
+	"example.com/dep" //caps:file:write,net
+)
+
+func main() {
+	fmt.Println(helper.Home(), dep.Save("x"))
+}
+-- badtoken/main.go --
+package main
+
+import (
+	"fmt"
+
+	"example.com/app/internal/helper"
+	"example.com/dep" //caps:file:write,net,bogus
+)
+
+func main() {
+	fmt.Println(helper.Home(), dep.Save("x"))
+}
+-- misplaced/main.go --
+package main
+
+import (
+	"fmt"
+
+	"example.com/dep" //caps:file:write,net
+)
+
+//caps:net
+func main() {
+	fmt.Println(dep.Save("x"))
+}
+-- dep/go.mod --
+module example.com/dep
+
+go 1.27
+
+require example.com/dep2 v0.0.0
+
+replace example.com/dep2 => ../dep2
+-- dep/dep.go --
+package dep
+
+import (
+	"os"
+
+	"example.com/dep2" //caps:net
+)
+
+func Save(s string) error {
+	dep2.Ping()
+	return os.WriteFile("/tmp/x", []byte(s), 0o644)
+}
+-- dep2/go.mod --
+module example.com/dep2
+
+go 1.27
+-- dep2/dep2.go --
+package dep2
+
+import "net"
+
+func Ping() {
+	c, err := net.Dial("tcp", "localhost:1")
+	if err == nil {
+		c.Close()
+	}
+}

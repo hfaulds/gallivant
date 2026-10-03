@@ -56,6 +56,8 @@ func ReadPackage(ctxt *types2.Context, imports map[string]*types2.Package, input
 		assert(r.Len() == 0)
 	}
 
+	readCapsFact(&r.Decoder)
+
 	r.Sync(pkgbits.SyncEOF)
 
 	pkg.MarkComplete()
@@ -661,4 +663,21 @@ func newAliasTypeName(aliases bool, pos syntax.Pos, pkg *types2.Package, name st
 	}
 	assert(len(tparams) == 0)
 	return types2.NewTypeName(pos, pkg, name, rhs)
+}
+
+// readCapsFact consumes the Gallivant capability fact that cmd/compile
+// appends to the public root (see noder.writeCapsFact). The types2
+// importer has no use for it; the noder records it separately.
+func readCapsFact(r *pkgbits.Decoder) {
+	if !r.Bool() {
+		return
+	}
+	_ = r.String() // module path
+	for i, n := 0, r.Len(); i < n; i++ {
+		_ = r.String() // capability
+	}
+	for i, n := 0, r.Len(); i < n; i++ {
+		_ = r.String() // capability
+		_ = r.String() // origin chain
+	}
 }

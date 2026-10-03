@@ -74,6 +74,15 @@ func (p *parser) init(file *PosBase, r io.Reader, errh ErrorHandler, pragh Pragm
 				return
 			}
 
+			// caps: directive (Gallivant import capabilities); recorded by the
+			// pragma handler but never attached to a declaration.
+			if strings.HasPrefix(text, "caps:") {
+				if pragh != nil {
+					p.pragma = pragh(p.posAt(line, col+2), p.scanner.blank, text, p.pragma)
+				}
+				return
+			}
+
 			// go: directive (but be conservative and test)
 			if strings.HasPrefix(text, "go:") {
 				if p.top && strings.HasPrefix(msg, "//go:build") {

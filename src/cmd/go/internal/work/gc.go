@@ -80,6 +80,10 @@ func (gcToolchain) gc(b *Builder, a *Action, archive string, importcfg, embedcfg
 	defaultGcFlags = append(defaultGcFlags, "-lang=go"+gover.Lang(vers))
 	if p.Standard {
 		defaultGcFlags = append(defaultGcFlags, "-std")
+	} else if p.Module != nil && p.Module.Path != "" {
+		// Gallivant: tell the compiler which module the package belongs to so
+		// it can skip import capability checks for intra-module imports.
+		defaultGcFlags = append(defaultGcFlags, "-modpath="+p.Module.Path)
 	}
 
 	// If we're giving the compiler the entire package (no C etc files), tell it that,
