@@ -1,0 +1,76 @@
+# Gallivant nonil modules (doc/gallivant/nonil.md): a module whose go.mod
+# has a nonil directive is compiled with -nonil, which rejects the
+# predeclared identifier nil.
+
+# cmd/go passes -nonil for packages of a main module with the directive,
+# and not for the standard library.
+go build -n -a -o $devnull ./ok
+stderr 'compile.* -p main .*-nonil'
+! stderr 'compile.* -p fmt .*-nonil'
+
+go build -o $devnull ./ok
+go list -m -json
+stdout '"NoNil": true'
+
+! go build -o $devnull ./bad
+stderr '^(\./)?bad[/\\]main\.go:6:15: use of nil in nonil module \(use Option, Result or a zero value instead\)$'
+stderr '^(\./)?bad[/\\]main\.go:9:12: use of nil in nonil module'
+
+# A module without the directive compiles the same code.
+cd plain
+go build -o $devnull ./...
+go list -m -json
+! stdout '"NoNil"'
+
+-- go.mod --
+module example.com/app
+
+go 1.27
+nonil
+-- ok/main.go --
+package main
+
+import (
+	"fmt"
+	"result"
+	"strconv"
+)
+
+func parse(s string) Result[int] {
+	return result.Wrap(strconv.Atoi(s))
+}
+
+func main() {
+	match parse("12") {
+	case Ok(n):
+		fmt.Println(n)
+	case Err(err):
+		fmt.Println(err)
+	}
+	var p *int // zero values are fine
+	_ = p
+}
+-- bad/main.go --
+package main
+
+import "fmt"
+
+func main() {
+	var p *int = nil
+	fmt.Println(p)
+	var err error
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+-- plain/go.mod --
+module example.com/plain
+
+go 1.27
+-- plain/main.go --
+package main
+
+func main() {
+	var p *int = nil
+	_ = p
+}

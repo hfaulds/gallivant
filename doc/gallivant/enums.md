@@ -48,7 +48,10 @@ large as the sum of its payloads plus the tag. This is deliberate: it keeps
 the garbage collector's view of the value simple and avoids `unsafe`. If you
 need compact unions, use an interface.
 
-`reflect` and `fmt` currently see the lowered struct. Giving enums their own
+`reflect` and `fmt` currently see the lowered struct: `%v` of
+`Shape.Circle(1)` prints `{1 1 0 0}` (tag, then the payload fields of every
+variant), while `%T` prints `shapes.Shape`. Define a `String` method, as the
+example below does, to print enums nicely. Giving enums their own
 `reflect.Kind` is future work.
 
 ## `match`

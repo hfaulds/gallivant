@@ -126,6 +126,9 @@ func (check *Checker) ident(x *operand, e *syntax.Name, wantType bool) {
 		x.mode_ = builtin
 
 	case *Nil:
+		if check.conf.NoNil && !isCgoGenerated(e.Pos()) {
+			check.error(e, NilNotAllowed, "use of nil in nonil module (use Option, Result or a zero value instead)")
+		}
 		x.mode_ = nilvalue
 
 	case *Variant:

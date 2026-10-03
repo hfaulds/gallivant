@@ -159,6 +159,7 @@ func _() {
 	_ = x[InvalidMatch-153]
 	_ = x[NonExhaustiveMatch-154]
 	_ = x[UncalledVariant-155]
+	_ = x[NilNotAllowed-156]
 }
 
 const (
@@ -168,7 +169,7 @@ const (
 	_Code_name_3 = "InvalidDotDotDotUncalledBuiltinInvalidAppendInvalidCapInvalidCloseInvalidCopyInvalidComplexInvalidDeleteInvalidImagInvalidLenSwappedMakeArgsInvalidMakeInvalidRealInvalidAssertImpossibleAssertInvalidConversionInvalidUntypedConversionBadOffsetofSyntaxInvalidOffsetofUnusedExprUnusedVarMissingReturnWrongResultCountOutOfScopeResultInvalidCondInvalidPostDecl"
 	_Code_name_4 = "InvalidIterVarInvalidRangeExprMisplacedBreakMisplacedContinueMisplacedFallthroughDuplicateCaseDuplicateDefaultBadTypeKeywordInvalidTypeSwitchInvalidExprSwitchInvalidSelectCaseUndeclaredLabelDuplicateLabelMisplacedLabelUnusedLabelJumpOverDeclJumpIntoBlockInvalidMethodExprWrongArgCountInvalidCallUnusedResultsInvalidDeferInvalidGoBadDeclRepeatedDeclInvalidUnsafeAddInvalidUnsafeSliceUnsupportedFeatureNotAGenericTypeWrongTypeArgCountCannotInferTypeArgsInvalidTypeArgInvalidInstanceCycleInvalidUnionMisplacedConstraintIfaceInvalidMethodTypeParamsMisplacedTypeParamInvalidUnsafeSliceDataInvalidUnsafeString"
 	_Code_name_5 = "InvalidClearTypeTooLargeInvalidMinMaxOperandTooNew"
-	_Code_name_6 = "InvalidEnumInvalidMatchNonExhaustiveMatchUncalledVariant"
+	_Code_name_6 = "InvalidEnumInvalidMatchNonExhaustiveMatchUncalledVariantNilNotAllowed"
 )
 
 var (
@@ -177,7 +178,7 @@ var (
 	_Code_index_3 = [...]uint16{0, 16, 31, 44, 54, 66, 77, 91, 104, 115, 125, 140, 151, 162, 175, 191, 208, 232, 249, 264, 274, 283, 296, 312, 328, 339, 354}
 	_Code_index_4 = [...]uint16{0, 14, 30, 44, 61, 81, 94, 110, 124, 141, 158, 175, 190, 204, 218, 229, 241, 254, 271, 284, 295, 308, 320, 329, 336, 348, 364, 382, 400, 415, 432, 451, 465, 485, 497, 521, 544, 562, 584, 603}
 	_Code_index_5 = [...]uint8{0, 12, 24, 44, 50}
-	_Code_index_6 = [...]uint8{0, 11, 23, 41, 56}
+	_Code_index_6 = [...]uint8{0, 11, 23, 41, 56, 69}
 )
 
 func (i Code) String() string {
@@ -199,7 +200,7 @@ func (i Code) String() string {
 	case 148 <= i && i <= 151:
 		i -= 148
 		return _Code_name_5[_Code_index_5[i]:_Code_index_5[i+1]]
-	case 152 <= i && i <= 155:
+	case 152 <= i && i <= 156:
 		i -= 152
 		return _Code_name_6[_Code_index_6[i]:_Code_index_6[i+1]]
 	default:

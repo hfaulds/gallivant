@@ -317,6 +317,9 @@ func moduleInfo(ld *Loader, ctx context.Context, rs *Requirements, m module.Vers
 			info.Dir = modRoot
 			info.GoMod = modFilePath(modRoot)
 		}
+		if f := ld.MainModules.ModFile(m); f != nil && f.NoNil != nil {
+			info.NoNil = true
+		}
 		return info
 	}
 
