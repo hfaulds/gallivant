@@ -39,7 +39,8 @@ func parse(s string) Result[int] {
 	return result.Wrap(strconv.Atoi(s)) // Ok(n) or Err(err)
 }
 
-v := option.FromOK(m[k]) // Option[V]
+v, ok := m[k]
+o := option.FromOK(v, ok) // Option[V]: Some(v) if ok, else None
 ```
 
 **Import capabilities** ([design](doc/gallivant/caps.md)).
