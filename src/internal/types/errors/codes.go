@@ -1522,4 +1522,11 @@ const (
 	//  type T enum { A(int) }
 	//  var f = T.A
 	UncalledVariant
+
+	// NilNotAllowed occurs when the predeclared identifier nil is used in
+	// a package of a module with a nonil directive in its go.mod file.
+	//
+	// Example (in a nonil module):
+	//  var p *int = nil
+	NilNotAllowed
 )

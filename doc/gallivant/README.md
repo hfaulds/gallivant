@@ -10,11 +10,11 @@ Gallivant adds four things to Go. Everything else, including the toolchain,
 
 | Feature | Status | Design |
 | --- | --- | --- |
-| `enum` types (tagged unions / sum types) | in progress | [enums.md](enums.md) |
-| `match` statement with exhaustiveness checking | in progress | [enums.md](enums.md) |
-| Predeclared `Option[T]` and `Result[T]` enums | in progress | [option-result.md](option-result.md) |
-| Import capabilities (`//caps:` directives) | in progress | [caps.md](caps.md) |
-| `nonil` modules | designed | [nonil.md](nonil.md) |
+| `enum` types (tagged unions / sum types) | compiler done; `gofmt`/`go vet` in progress | [enums.md](enums.md) |
+| `match` statement with exhaustiveness checking | compiler done; `gofmt`/`go vet` in progress | [enums.md](enums.md) |
+| Predeclared `Option[T]` and `Result[T]` enums, packages `option` and `result` | done | [option-result.md](option-result.md) |
+| Import capabilities (`//caps:` directives) | done | [caps.md](caps.md) |
+| `nonil` modules | done | [nonil.md](nonil.md) |
 
 ## Building
 
@@ -27,6 +27,14 @@ GOROOT_BOOTSTRAP=$HOME/sdk/go1.24.6 ./make.bash
 export PATH=$PWD/../bin:$PATH
 go version
 ```
+
+### Iterating on the toolchain
+
+`go install cmd/compile` (or `cmd/link`, `cmd/go`) rebuilds a single tool
+quickly. The go command keys its build cache on the compiler's *version
+string*, which does not change between your edits, so follow a tool rebuild
+with `go clean -cache` or stale objects will be linked and you will chase
+ghosts.
 
 ## Compatibility
 

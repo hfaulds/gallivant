@@ -46,8 +46,15 @@ type File struct {
 	Retract   []*Retract
 	Tool      []*Tool
 	Ignore    []*Ignore
+	NoNil     *NoNil // Gallivant: the module rejects uses of nil
 
 	Syntax *FileSyntax
+}
+
+// A NoNil is the Gallivant nonil statement, which makes the compiler
+// reject uses of the predeclared identifier nil in the module's packages.
+type NoNil struct {
+	Syntax *Line
 }
 
 // A Module is the module statement.
@@ -401,6 +408,17 @@ func (f *File) add(errs *ErrorList, block *LineBlock, line *Line, verb string, a
 
 		f.Go = &Go{Syntax: line}
 		f.Go.Version = args[0]
+
+	case "nonil":
+		if f.NoNil != nil {
+			errorf("repeated nonil statement")
+			return
+		}
+		if len(args) != 0 {
+			errorf("nonil directive takes no arguments")
+			return
+		}
+		f.NoNil = &NoNil{Syntax: line}
 
 	case "toolchain":
 		if f.Toolchain != nil {

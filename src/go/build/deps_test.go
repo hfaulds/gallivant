@@ -42,6 +42,8 @@ var depsRules = `
 	< cmp,
 	  container/list,
 	  container/ring,
+	  option,
+	  result,
 	  internal/byteorder,
 	  internal/cfg,
 	  internal/coverage,

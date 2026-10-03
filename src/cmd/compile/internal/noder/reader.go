@@ -2005,6 +2005,7 @@ func (r *reader) matchStmt(label *types.Sym) ir.Node {
 	tag := typecheck.XDotField(pos, tmp, tagField.Sym)
 
 	clauses := make([]*ir.CaseClause, r.Len())
+	hasDefault := false
 	for i := range clauses {
 		if i > 0 {
 			r.closeScope()
@@ -2014,7 +2015,11 @@ func (r *reader) matchStmt(label *types.Sym) ir.Node {
 		cpos := r.pos()
 		var cases []ir.Node
 		var bindings []ir.Node
-		for npat := r.Len(); npat > 0; npat-- {
+		npat := r.Len()
+		if npat == 0 {
+			hasDefault = true
+		}
+		for ; npat > 0; npat-- {
 			idx := r.Len()
 			cases = append(cases, ir.NewBasicLit(cpos, tagField.Type, constant.MakeInt64(int64(idx))))
 			for nb := r.Len(); nb > 0; nb-- {
@@ -2042,6 +2047,14 @@ func (r *reader) matchStmt(label *types.Sym) ir.Node {
 		r.closeScope()
 	}
 	r.closeScope()
+
+	// The type checker guarantees that the match is exhaustive, so the
+	// last clause can be the default one. This lets the backend see that
+	// a match whose clauses all return is terminating, and avoids a
+	// redundant comparison.
+	if !hasDefault && len(clauses) > 0 {
+		clauses[len(clauses)-1].List = nil
+	}
 
 	n := ir.NewSwitchStmt(pos, tag, clauses)
 	n.Label = label
