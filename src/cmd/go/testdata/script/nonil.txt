@@ -24,6 +24,14 @@ stderr '^(\./)?zero[/\\]main\.go:9:7: p is used before it is assigned \(\*int ha
 stderr '^(\./)?zero[/\\]main\.go:10:16: lib.T literal omits field P: \*int has no zero value in a nonil module$'
 stderr '^(\./)?zero[/\\]main\.go:12:6: q is used before it is assigned \(lib.T has no zero value in a nonil module \(it contains \*int\)\)$'
 
+# The zeroable constraint admits only types with a zero value, also
+# across packages.
+go run ./generic
+stdout '^0 \[0 0\] \[\] true$'
+! go build -o $devnull ./generic/bad
+stderr '^(\./)?generic[/\\]bad[/\\]bad\.go:6:16: \*int does not satisfy zeroable \(\*int has no zero value in a nonil module\)$'
+stderr '^(\./)?generic[/\\]bad[/\\]bad\.go:11:9: z is used before it is assigned \(T has no zero value in a nonil module\)$'
+
 # Files named on the command line follow the module containing them.
 ! go build -o $devnull bad/main.go
 stderr 'use of nil in nonil module'
@@ -148,6 +156,46 @@ func main() {
 	var q lib.T
 	_ = q
 }
+-- generic/zero/zero.go --
+package zero
+
+type Z zeroable
+
+func Zero[T Z]() T {
+	var z T
+	return z
+}
+
+func Make[T zeroable](n int) []T { return make([]T, n) }
+
+func Get[K comparable, V zeroable](m map[K]V, k K) V { return m[k] }
+-- generic/main.go --
+package main
+
+import (
+	"fmt"
+	"option"
+
+	"example.com/app/generic/zero"
+)
+
+func main() {
+	o := zero.Zero[Option[*int]]()
+	fmt.Println(zero.Zero[int](), zero.Make[float64](2), zero.Get(map[int][]string{}, 1), option.IsNone(o))
+}
+-- generic/bad/bad.go --
+package bad
+
+import "example.com/app/generic/zero"
+
+func F() {
+	_ = zero.Zero[*int]()
+}
+
+func G[T any]() T {
+	var z T
+	return z
+}
 -- bad/main.go --
 package main
 
@@ -203,6 +251,7 @@ import "example.com/legacy/lib"
 
 func main() {
 	_ = lib.Find()
+	_ = lib.Zero[*int]()
 }
 -- legacy/lib/lib.go --
 package lib
@@ -214,6 +263,12 @@ func Find() *int {
 type Config struct {
 	Name string
 	Log  *int
+}
+
+// Outside nonil modules every type satisfies zeroable.
+func Zero[T zeroable]() T {
+	var z T
+	return z
 }
 -- usedep/go.mod --
 module example.com/usedep

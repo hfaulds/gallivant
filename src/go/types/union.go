@@ -121,6 +121,10 @@ func parseUnion(check *Checker, uexpr ast.Expr) Type {
 					check.error(tlist[i], InvalidUnion, "cannot use comparable in union")
 				case tset.comparable:
 					check.errorf(tlist[i], InvalidUnion, "cannot use %s in union (%s embeds comparable)", t, t)
+				case t.typ == universeZeroable.Type():
+					check.error(tlist[i], InvalidUnion, "cannot use zeroable in union")
+				case tset.zeroable:
+					check.errorf(tlist[i], InvalidUnion, "cannot use %s in union (%s embeds zeroable)", t, t)
 				}
 				continue // terms with interface types are not subject to the no-overlap rule
 			}

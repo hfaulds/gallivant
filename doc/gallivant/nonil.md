@@ -47,9 +47,10 @@ type Server struct {
 }
 ```
 
-A type parameter has a zero value only if every type in its constraint's
-type set has one, so a type parameter constrained by `any` has none. Return
-`Option[T]` where Go code would return `var zero T`.
+A type parameter has a zero value only if its constraint is (or embeds)
+`zeroable`, or every type in the constraint's type set has one. A type
+parameter constrained by `any` has none. See [The `zeroable`
+constraint](#the-zeroable-constraint).
 
 Struct types declared outside your module (in the standard library or a
 dependency) always have a zero value. Go types are designed so that their
@@ -109,6 +110,38 @@ The same applies to named results, which must be assigned before a bare
 
 Errors read `p is used before it is assigned (*T has no zero value in a nonil
 module)`.
+
+### The `zeroable` constraint
+
+`zeroable` is a predeclared constraint, like `comparable`. In a nonil
+package it is satisfied by exactly the types that have a zero value, so
+generic code constrained by it may create zero values:
+
+```go
+func Get[K comparable, V zeroable](m map[K]V, k K) V {
+	return m[k] // ok: V has a zero value
+}
+
+func Make[T zeroable](n int) []T { return make([]T, n) }
+
+type Number interface {
+	zeroable
+	~int | ~float64
+}
+
+Get(counts, "x")      // ok: int has a zero value
+Make[*Node](3)        // error: *Node does not satisfy zeroable
+```
+
+Like `comparable`, `zeroable` can only be used in constraints, and not in a
+union. Where the constraint is checked depends on where the generic code is
+instantiated: in a package compiled without nonil, every type has a zero
+value as in Go, so every type satisfies `zeroable`. `zeroable` is an ordinary
+predeclared identifier, so code that declares its own `zeroable` keeps
+compiling.
+
+Without `zeroable`, return `Option[T]` where Go code would return
+`var zero T`.
 
 Known gaps: reslicing a slice beyond its length (`s[:cap(s)]`) exposes zero
 elements; a named result is still zero if a deferred `recover` stops a panic
@@ -171,6 +204,5 @@ module information, trusts the zero value of every struct declared outside
 the package being checked).
 
 Future work: a `go vet` check that flags exported functions returning
-nilable types where an `Option` or `Result` would be clearer; a `zeroable`
-constraint so generic code can use `var zero T`; recognising functions that
-never return.
+nilable types where an `Option` or `Result` would be clearer; recognising
+functions that never return.

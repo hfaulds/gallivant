@@ -242,6 +242,10 @@ func (w *typeWriter) typ(typ Type) {
 				w.string("interface{comparable}")
 				break
 			}
+			if t == asNamed(universeZeroable.Type()).underlying {
+				w.string("interface{zeroable}")
+				break
+			}
 		}
 		if t.implicit {
 			if len(t.methods) == 0 && len(t.embeddeds) == 1 {

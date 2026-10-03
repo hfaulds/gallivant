@@ -61,7 +61,12 @@ func (check *Checker) noZeroCause(t Type, seen map[*Named]bool) Type {
 			return c
 		}
 		return nil
-	case *Pointer, *Map, *Chan, *Signature, *Interface:
+	case *Interface:
+		if !u.typeSet().IsMethodSet() {
+			return nil // a constraint interface used as a type, reported elsewhere
+		}
+		return t
+	case *Pointer, *Map, *Chan, *Signature:
 		return t
 	case *Slice:
 		return nil // the zero value of a slice behaves like an empty slice
@@ -88,6 +93,9 @@ func (check *Checker) noZeroCause(t Type, seen map[*Named]bool) Type {
 		}
 		return nil
 	case *TypeParam:
+		if u.iface().typeSet().zeroable {
+			return nil
+		}
 		var cause Type
 		all(u, func(t, _ Type) bool {
 			if t == nil {
@@ -110,6 +118,24 @@ func isNoZeroLeaf(t Type) bool {
 		return true
 	case *Basic:
 		return u.kind == UnsafePointer
+	}
+	return false
+}
+
+// implementsZeroable reports whether V satisfies the zeroable part of the
+// constraint interface T, if T is or embeds the predeclared zeroable. In a
+// nonil package this requires V to have a zero value (see hasZero). In any
+// other package, as in Go, every type has a zero value and satisfies it.
+func (check *Checker) implementsZeroable(V Type, T *Interface, verb string, cause *string) bool {
+	if !T.typeSet().zeroable || check == nil || !check.conf.NoNil {
+		return true
+	}
+	c := check.noZeroCause(V, nil)
+	if c == nil {
+		return true
+	}
+	if cause != nil {
+		*cause = check.sprintf("%s does not %s zeroable (%s)", V, verb, check.noZeroMsg(V, c, ""))
 	}
 	return false
 }

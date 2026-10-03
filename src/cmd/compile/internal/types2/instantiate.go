@@ -298,6 +298,9 @@ func (check *Checker) implements(V, T Type, constraint bool, cause *string) bool
 
 	// Only check comparability if we don't have a more specific error.
 	checkComparability := func() bool {
+		if !check.implementsZeroable(V, Ti, verb, cause) {
+			return false
+		}
 		if !Ti.IsComparable() {
 			return true
 		}

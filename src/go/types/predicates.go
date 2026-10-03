@@ -430,7 +430,7 @@ func (c *comparer) identical(x, y Type, p *ifacePair) bool {
 		if y, ok := y.(*Interface); ok {
 			xset := x.typeSet()
 			yset := y.typeSet()
-			if xset.comparable != yset.comparable {
+			if xset.comparable != yset.comparable || xset.zeroable != yset.zeroable {
 				return false
 			}
 			if !xset.terms.equal(yset.terms) {

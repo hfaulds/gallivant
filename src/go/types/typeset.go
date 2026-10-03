@@ -30,6 +30,7 @@ type _TypeSet struct {
 	methods    []*Func  // all methods of the interface; sorted by unique ID
 	terms      termlist // type terms of the type set
 	comparable bool     // invariant: !comparable || terms.isAll()
+	zeroable   bool     // only types with a zero value (Gallivant); see Checker.implementsZeroable
 }
 
 // IsEmpty reports whether s is the empty set.
@@ -39,7 +40,7 @@ func (s *_TypeSet) IsEmpty() bool { return s.terms.isEmpty() }
 func (s *_TypeSet) IsAll() bool { return s.IsMethodSet() && len(s.methods) == 0 }
 
 // IsMethodSet reports whether the interface t is fully described by its method set.
-func (s *_TypeSet) IsMethodSet() bool { return !s.comparable && s.terms.isAll() }
+func (s *_TypeSet) IsMethodSet() bool { return !s.comparable && !s.zeroable && s.terms.isAll() }
 
 // IsComparable reports whether each type in the set is comparable.
 func (s *_TypeSet) IsComparable(seen map[Type]bool) bool {
@@ -78,6 +79,12 @@ func (s *_TypeSet) String() string {
 	buf.WriteByte('{')
 	if s.comparable {
 		buf.WriteString("comparable")
+		if s.zeroable || hasMethods || hasTerms {
+			buf.WriteString("; ")
+		}
+	}
+	if s.zeroable {
+		buf.WriteString("zeroable")
 		if hasMethods || hasTerms {
 			buf.WriteString("; ")
 		}
@@ -258,6 +265,7 @@ func computeInterfaceTypeSet(check *Checker, pos token.Pos, ityp *Interface) *_T
 	// collect embedded elements
 	allTerms := allTermlist
 	allComparable := false
+	allZeroable := false
 	for i, typ := range ityp.embeddeds {
 		// The embedding position is nil for imported interfaces.
 		// We don't need to do version checks in those cases.
@@ -277,6 +285,7 @@ func computeInterfaceTypeSet(check *Checker, pos token.Pos, ityp *Interface) *_T
 				continue
 			}
 			comparable = tset.comparable
+			allZeroable = allZeroable || tset.zeroable
 			for _, m := range tset.methods {
 				addMethod(pos, m, false) // use embedding position pos rather than m.pos
 			}
@@ -289,7 +298,7 @@ func computeInterfaceTypeSet(check *Checker, pos token.Pos, ityp *Interface) *_T
 			if tset == &invalidTypeSet {
 				continue // ignore invalid unions
 			}
-			assert(!tset.comparable)
+			assert(!tset.comparable && !tset.zeroable)
 			assert(len(tset.methods) == 0)
 			terms = tset.terms
 		default:
@@ -309,6 +318,7 @@ func computeInterfaceTypeSet(check *Checker, pos token.Pos, ityp *Interface) *_T
 	}
 
 	ityp.tset.comparable = allComparable
+	ityp.tset.zeroable = allZeroable
 	if len(allMethods) != 0 {
 		sortMethods(allMethods)
 		ityp.tset.methods = allMethods

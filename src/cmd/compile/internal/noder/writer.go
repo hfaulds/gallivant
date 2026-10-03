@@ -481,6 +481,7 @@ func (pw *pkgWriter) pkgIdx(pkg *types2.Package) index {
 var (
 	anyTypeName        = types2.Universe.Lookup("any").(*types2.TypeName)
 	comparableTypeName = types2.Universe.Lookup("comparable").(*types2.TypeName)
+	zeroableTypeName   = types2.Universe.Lookup("zeroable").(*types2.TypeName)
 	runeTypeName       = types2.Universe.Lookup("rune").(*types2.TypeName)
 )
 
@@ -701,15 +702,19 @@ func (w *writer) interfaceType(typ *types2.Interface) {
 	// reconstruct it.
 	if typ.NumEmbeddeds() == 0 && !typ.IsMethodSet() {
 		// Currently, this can only happen for the underlying Interface of
-		// "comparable", which is needed to handle type declarations like
-		// "type C comparable".
-		assert(typ == comparableTypeName.Type().(*types2.Named).Underlying())
+		// "comparable" or "zeroable", which is needed to handle type
+		// declarations like "type C comparable".
+		name := comparableTypeName
+		if typ == zeroableTypeName.Type().(*types2.Named).Underlying() {
+			name = zeroableTypeName
+		}
+		assert(typ == name.Type().(*types2.Named).Underlying())
 
-		// Export as "interface{ comparable }".
-		w.Len(0)                         // NumExplicitMethods
-		w.Len(1)                         // NumEmbeddeds
-		w.Bool(false)                    // IsImplicit
-		w.typ(comparableTypeName.Type()) // EmbeddedType(0)
+		// Export as "interface{ comparable }" or "interface{ zeroable }".
+		w.Len(0)           // NumExplicitMethods
+		w.Len(1)           // NumEmbeddeds
+		w.Bool(false)      // IsImplicit
+		w.typ(name.Type()) // EmbeddedType(0)
 		return
 	}
 

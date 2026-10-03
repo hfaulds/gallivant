@@ -176,6 +176,8 @@ func (check *Checker) validVarType(e syntax.Expr, typ Type) {
 			if !tset.IsMethodSet() {
 				if tset.comparable {
 					check.softErrorf(pos, MisplacedConstraintIface, "cannot use type %s outside a type constraint: interface is (or embeds) comparable", typ)
+				} else if tset.zeroable {
+					check.softErrorf(pos, MisplacedConstraintIface, "cannot use type %s outside a type constraint: interface is (or embeds) zeroable", typ)
 				} else {
 					check.softErrorf(pos, MisplacedConstraintIface, "cannot use type %s outside a type constraint: interface contains type constraints", typ)
 				}

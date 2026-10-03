@@ -74,6 +74,13 @@ if path == "" {
 cfg := Config{Name: "x"} // error if Config has a pointer field
 ```
 
+Generic code that needs `var zero T` constrains `T` by the predeclared
+`zeroable`, which only types with a zero value satisfy:
+
+```go
+func Get[K comparable, V zeroable](m map[K]V, k K) V { return m[k] }
+```
+
 ```
 module example.com/legacy
 

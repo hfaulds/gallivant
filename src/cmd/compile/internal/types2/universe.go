@@ -27,6 +27,7 @@ var (
 	universeError      Type
 	universeAny        Object
 	universeComparable Object
+	universeZeroable   Object
 	universeOption     *TypeName // type Option[T any] enum { None; Some(T) }
 	universeResult     *TypeName // type Result[T any] enum { Ok(T); Err(error) }
 	universeNone       Object    // the untyped value None
@@ -115,7 +116,14 @@ func defPredeclaredTypes() {
 	// type comparable interface{} // marked as comparable
 	{
 		obj := NewTypeName(nopos, nil, "comparable", nil)
-		NewNamed(obj, &Interface{complete: true, tset: &_TypeSet{nil, allTermlist, true}}, nil)
+		NewNamed(obj, &Interface{complete: true, tset: &_TypeSet{terms: allTermlist, comparable: true}}, nil)
+		def(obj)
+	}
+
+	// type zeroable interface{} // marked as zeroable (Gallivant)
+	{
+		obj := NewTypeName(nopos, nil, "zeroable", nil)
+		NewNamed(obj, &Interface{complete: true, tset: &_TypeSet{terms: allTermlist, zeroable: true}}, nil)
 		def(obj)
 	}
 
@@ -293,6 +301,7 @@ func init() {
 	universeError = Universe.Lookup("error").Type()
 	universeAny = Universe.Lookup("any")
 	universeComparable = Universe.Lookup("comparable")
+	universeZeroable = Universe.Lookup("zeroable")
 	universeOption = Universe.Lookup("Option").(*TypeName)
 	universeResult = Universe.Lookup("Result").(*TypeName)
 	universeNone = Universe.Lookup("None")

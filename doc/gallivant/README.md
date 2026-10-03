@@ -54,8 +54,9 @@ are *contextual*: they only act as keywords in positions where an identifier
 could never have appeared in Go, so existing code that uses `match` or `enum`
 as identifiers keeps compiling.
 
-The new predeclared identifiers `Option`, `Result`, `Some`, `None`, `Ok` and
-`Err` live in the universe scope, exactly like `any`, `min` and `max`. They can
+The new predeclared identifiers `Option`, `Result`, `Some`, `None`, `Ok`,
+`Err` and `zeroable` live in the universe scope, exactly like `any`, `min`
+and `max`. They can
 be shadowed by package-level or local declarations, so existing code that
 defines its own `Result` type keeps working.
 

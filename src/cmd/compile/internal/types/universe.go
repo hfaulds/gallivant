@@ -108,6 +108,12 @@ func InitTypes(defTypeName func(sym *Sym, typ *Type) Object) {
 	ComparableType.SetUnderlying(makeComparableInterface())
 	ResumeCheckSize()
 
+	// zeroable type (interface; Gallivant)
+	DeferCheckSize()
+	ZeroableType = defBasic(TFORW, BuiltinPkg, "zeroable")
+	ZeroableType.SetUnderlying(makeComparableInterface())
+	ResumeCheckSize()
+
 	// any type (interface)
 	DeferCheckSize()
 	AnyType = defBasic(TFORW, BuiltinPkg, "any")
