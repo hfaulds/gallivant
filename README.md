@@ -1,42 +1,128 @@
-# The Go Programming Language
+# Gallivant
 
-Go is an open source programming language that makes it easy to build simple,
-reliable, and efficient software.
+Gallivant is a fork of the Go programming language, currently tracking
+`go1.27.1`. It is built on the thesis that most Go is not written to be
+performant, so the language can trade a little machine sympathy for
+ergonomics and security. It is a strict superset of Go: every Go program
+compiles unchanged and means the same thing.
 
-![Gopher image](https://golang.org/doc/gopher/fiveyears.jpg)
-*Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attribution license][cc4-by].*
+## Features
 
-Our canonical Git repository is located at https://go.googlesource.com/go.
-There is a mirror of the repository at https://github.com/golang/go.
+**Enum types and exhaustive `match`** ([design](doc/gallivant/enums.md)).
+A `match` that misses a variant does not compile.
 
-Unless otherwise noted, the Go source files are distributed under the
-BSD-style license found in the LICENSE file.
+```go
+type Shape enum {
+	Empty
+	Circle(radius float64)
+	Rect(w, h float64)
+}
 
-### Download and Install
+func area(s Shape) float64 {
+	match s {
+	case Empty:
+		return 0
+	case Circle(r):
+		return math.Pi * r * r
+	case Rect(w, h):
+		return w * h
+	}
+}
+```
 
-#### Binary Distributions
+**Predeclared `Option[T]` and `Result[T]`** ([design](doc/gallivant/option-result.md)).
+`Some`, `None`, `Ok` and `Err` construct them. The `option` and `result`
+standard-library packages bridge to existing Go APIs.
 
-Official binary distributions are available at https://go.dev/dl/.
+```go
+func parse(s string) Result[int] {
+	return result.Wrap(strconv.Atoi(s)) // Ok(n) or Err(err)
+}
 
-After downloading a binary release, visit https://go.dev/doc/install
-for installation instructions.
+v := option.FromOK(m[k]) // Option[V]
+```
 
-#### Install From Source
+**Import capabilities** ([design](doc/gallivant/caps.md)).
+A dependency from another module that uses the filesystem, network, process
+execution, environment or `unsafe` must be granted that capability with a
+`//caps:` comment at the import site. The compiler enforces it.
 
-If a binary distribution is not available for your combination of
-operating system and architecture, visit
-https://go.dev/doc/install/source
-for source installation instructions.
+```go
+import (
+	"github.com/example/logger" //caps:file:write
+)
+```
 
-### Contributing
+**`nonil` modules** ([design](doc/gallivant/nonil.md)).
+A `nonil` line in go.mod makes `nil` a compile error in that module's code.
 
-Go is the work of thousands of contributors. We appreciate your help!
+```
+module example.com/app
 
-To contribute, please read the contribution guidelines at https://go.dev/doc/contribute.
+go 1.27
+nonil
+```
 
-Note that the Go project uses the issue tracker for bug reports and
-proposals only. See https://go.dev/wiki/Questions for a list of
-places to ask questions about the Go language.
+## Building
 
-[rf]: https://reneefrench.blogspot.com/
-[cc4-by]: https://creativecommons.org/licenses/by/4.0/
+You need a bootstrap Go toolchain of `go1.24.6` or later. Any Go >= 1.24.6
+in your PATH works, or install one:
+
+```sh
+go install golang.org/dl/go1.24.6@latest && go1.24.6 download
+```
+
+Then build Gallivant:
+
+```sh
+cd src
+GOROOT_BOOTSTRAP=$(go1.24.6 env GOROOT) ./make.bash
+export PATH=$PWD/../bin:$PATH
+go version
+```
+
+Set `GOTOOLCHAIN=local` so the go command never downloads a different
+toolchain.
+
+`go install cmd/compile` (or `cmd/link`, `cmd/go`) rebuilds a single tool.
+The build cache is keyed on the version string, which does not change, so run
+`go clean -cache` afterwards or stale objects will be reused.
+
+## Using it in a project
+
+Write a go.mod with `go 1.27`, and optionally `nonil`. Then build and test
+with Gallivant's `go` exactly as you would with Go:
+
+```sh
+go build ./...
+go test ./...
+```
+
+`gofmt` and `go vet` support for the new syntax is still being finished (see
+the [status table](doc/gallivant/README.md)). Until it lands, use
+`go test -vet=off` in packages that use `enum` or `match`.
+
+## Status
+
+Done: enum types and `match` in the compiler, `Option` and `Result` with the
+`option` and `result` packages, import capabilities, and `nonil` modules.
+
+In progress: `gofmt` and `go vet` support for `enum` and `match`.
+
+See [doc/gallivant/README.md](doc/gallivant/README.md) for the full table,
+compatibility notes and the list of touched source areas.
+
+## Syncing with upstream
+
+The `upstream` remote points at https://github.com/golang/go.git. To pick up
+a new Go release:
+
+```sh
+git fetch upstream --tags
+git merge go1.XX.Y
+```
+
+## License
+
+Unless otherwise noted, the source files are distributed under the BSD-style
+license found in the LICENSE file.
