@@ -99,16 +99,19 @@ go build ./...
 go test ./...
 ```
 
-`gofmt` and `go vet` support for the new syntax is still being finished (see
-the [status table](doc/gallivant/README.md)). Until it lands, use
-`go test -vet=off` in packages that use `enum` or `match`.
+`gofmt`, `go vet` and other go/types-based tools understand the new syntax.
+Editors and linters that bundle their own copy of `golang.org/x/tools` need
+the same small updates this fork made to its vendored copy.
 
 ## Status
 
-Done: enum types and `match` in the compiler, `Option` and `Result` with the
-`option` and `result` packages, import capabilities, and `nonil` modules.
+Done: enum types and `match` (compiler, `gofmt`, `go vet`), `Option` and
+`Result` with the `option` and `result` packages, import capabilities, and
+`nonil` modules.
 
-In progress: `gofmt` and `go vet` support for `enum` and `match`.
+Not done: enums have no `reflect.Kind` of their own, so `fmt` prints the
+lowered struct unless you define a `String` method; a `go vet` check nudging
+nilable results towards `Option`/`Result`.
 
 See [doc/gallivant/README.md](doc/gallivant/README.md) for the full table,
 compatibility notes and the list of touched source areas.

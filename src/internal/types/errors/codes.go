@@ -1488,7 +1488,7 @@ const (
 	// is malformed (duplicate variant names, blank variant names).
 	//
 	// Example:
-	//  var x enum { A; B }
+	//  type T enum { A; A }
 	InvalidEnum
 
 	// InvalidMatch occurs when a match statement is applied to a value

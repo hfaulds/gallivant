@@ -10,8 +10,8 @@ Gallivant adds four things to Go. Everything else, including the toolchain,
 
 | Feature | Status | Design |
 | --- | --- | --- |
-| `enum` types (tagged unions / sum types) | compiler done; `gofmt`/`go vet` in progress | [enums.md](enums.md) |
-| `match` statement with exhaustiveness checking | compiler done; `gofmt`/`go vet` in progress | [enums.md](enums.md) |
+| `enum` types (tagged unions / sum types) | done | [enums.md](enums.md) |
+| `match` statement with exhaustiveness checking | done | [enums.md](enums.md) |
 | Predeclared `Option[T]` and `Result[T]` enums, packages `option` and `result` | done | [option-result.md](option-result.md) |
 | Import capabilities (`//caps:` directives) | done | [caps.md](caps.md) |
 | `nonil` modules | done | [nonil.md](nonil.md) |
