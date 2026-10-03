@@ -255,7 +255,7 @@ func (ls *labelScope) blockBranches(parent *block, ctxt targets, lstmt *LabeledS
 				// whose execution terminates."
 				if t := ls.enclosingTarget(b, name); t != nil {
 					switch t := t.Stmt.(type) {
-					case *SwitchStmt, *SelectStmt, *ForStmt:
+					case *SwitchStmt, *SelectStmt, *ForStmt, *MatchStmt:
 						s.Target = t
 					default:
 						ls.errf(s.Label.Pos(), "invalid break label %s", name)
@@ -319,6 +319,13 @@ func (ls *labelScope) blockBranches(parent *block, ctxt targets, lstmt *LabeledS
 			}
 
 		case *SelectStmt:
+			inner := targets{s, ctxt.continues, -1}
+			for _, cc := range s.Body {
+				innerBlock(inner, cc.Pos(), cc.Body)
+			}
+
+		case *MatchStmt:
+			// caseIndex stays -1: fallthrough is never permitted in a match.
 			inner := targets{s, ctxt.continues, -1}
 			for _, cc := range s.Body {
 				innerBlock(inner, cc.Pos(), cc.Body)

@@ -243,6 +243,18 @@ func EndPos(n Node) Pos {
 				continue
 			}
 			m = n.Name
+		case *EnumType:
+			if l := len(n.VariantList); l > 0 {
+				m = n.VariantList[l-1]
+				continue
+			}
+			return n.Pos()
+		case *Variant:
+			if l := lastField(n.FieldList); l != nil {
+				m = l
+				continue
+			}
+			m = n.Name
 		case *InterfaceType:
 			if l := lastField(n.MethodList); l != nil {
 				m = l
@@ -312,6 +324,8 @@ func EndPos(n Node) Pos {
 		case *SwitchStmt:
 			return n.Rbrace
 		case *SelectStmt:
+			return n.Rbrace
+		case *MatchStmt:
 			return n.Rbrace
 
 		// helper nodes

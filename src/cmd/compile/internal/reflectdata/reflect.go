@@ -1144,9 +1144,12 @@ func writtenByWriteBasicTypes(typ *types.Type) bool {
 		typ = typ.Elem()
 	}
 
-	// Basic types.
+	// Basic types. Instantiations of the predeclared generic enums
+	// (Option[T], Result[T]) also live in the builtin package but are
+	// emitted as DUPOK by every package that uses them, like any other
+	// instantiated type.
 	sym := typ.Sym()
-	if sym != nil && (sym.Pkg == types.BuiltinPkg || sym.Pkg == types.UnsafePkg) {
+	if sym != nil && (sym.Pkg == types.BuiltinPkg || sym.Pkg == types.UnsafePkg) && !typ.IsFullyInstantiated() {
 		return true
 	}
 	// any or error

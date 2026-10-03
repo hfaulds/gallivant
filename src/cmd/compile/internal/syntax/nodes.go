@@ -302,6 +302,21 @@ type (
 		node
 	}
 
+	// enum { VariantList[0]; VariantList[1]; ... }
+	EnumType struct {
+		VariantList []*Variant
+		expr
+	}
+
+	// Name
+	// Name(FieldList[0], FieldList[1], ...)
+	Variant struct {
+		Name      *Name
+		FieldList []*Field // payload fields; nil means no payload (and no parentheses)
+		HasParens bool     // Name() was written with (possibly empty) parentheses
+		node
+	}
+
 	// interface { MethodList[0]; MethodList[1]; ... }
 	InterfaceType struct {
 		MethodList []*Field
@@ -446,6 +461,20 @@ type (
 
 	SelectStmt struct {
 		Body   []*CommClause
+		Rbrace Pos
+		stmt
+	}
+
+	// match Init; Tag { Body }
+	// match Tag { Body }
+	//
+	// Each case clause's Cases is a list of patterns, each of which is a
+	// *Name (payload-less variant) or a *CallExpr whose Fun is a *Name
+	// (variant with payload bindings).
+	MatchStmt struct {
+		Init   SimpleStmt
+		Tag    Expr
+		Body   []*CaseClause
 		Rbrace Pos
 		stmt
 	}

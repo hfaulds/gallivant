@@ -531,11 +531,116 @@ func (r *reader) doTyp() *types.Type {
 		return types.NewSlice(r.typ())
 	case pkgbits.TypeStruct:
 		return r.structType()
+	case pkgbits.TypeEnum:
+		return r.enumType()
 	case pkgbits.TypeInterface:
 		return r.interfaceType()
 	case pkgbits.TypeUnion:
 		return r.unionType()
 	}
+}
+
+// enumTagType returns the type of the tag field of an enum with n variants.
+func enumTagType(n int) *types.Type {
+	switch {
+	case n <= 1<<8:
+		return types.Types[types.TUINT8]
+	case n <= 1<<16:
+		return types.Types[types.TUINT16]
+	}
+	return types.Types[types.TUINT32]
+}
+
+// enumFieldSym returns the symbol for a lowered enum field. Exported names
+// live in the local package like any exported struct field; unexported
+// ones belong to the enum's package.
+func enumFieldSym(pkg *types.Pkg, name string) *types.Sym {
+	if types.IsExported(name) {
+		pkg = types.LocalPkg
+	}
+	return pkg.Lookup(name)
+}
+
+// enumType reads an enum type and returns the struct type it is lowered
+// to: a tag field followed by the payload fields of every variant, named
+// Variant_field (or Variant_i for unnamed payloads). This layout must
+// match types2.(*Enum).loweredStruct and noder.enumFieldIndex.
+func (r *reader) enumType() *types.Type {
+	nvariants := r.Len()
+	pkg := types.LocalPkg
+	var fields []*types.Field
+	fields = append(fields, nil) // tag, filled in below
+	for i := 0; i < nvariants; i++ {
+		vpos := r.pos()
+		vsym := r.selector()
+		_ = r.Bool() // hasParens
+		if i == 0 && !types.IsExported(vsym.Name) {
+			pkg = vsym.Pkg
+		}
+		nfields := r.Len()
+		for j := 0; j < nfields; j++ {
+			fpos := r.pos()
+			// Like r.selector, but payload fields may be unnamed.
+			r.Sync(pkgbits.SyncSelector)
+			_ = r.pkg()
+			fname := r.String()
+			ftyp := r.typ()
+			if fname == "" || fname == "_" {
+				fname = fmt.Sprint(j)
+			}
+			if !fpos.IsKnown() {
+				fpos = vpos
+			}
+			fields = append(fields, types.NewField(fpos, enumFieldSym(vsym.Pkg, vsym.Name+"_"+fname), ftyp))
+		}
+	}
+	fields[0] = types.NewField(src.NoXPos, pkg.Lookup("tag"), enumTagType(nvariants))
+	return types.NewStruct(fields)
+}
+
+// builtinEnumInstance returns the type name for an instantiation of the
+// predeclared generic enums Option[T] and Result[T]. These are not
+// defined in any package's export data, so the reader synthesizes them.
+func builtinEnumInstance(name string, targs []*types.Type) *ir.Name {
+	T := targs[0]
+	sym := types.BuiltinPkg.Lookup(fmt.Sprintf("%s[%s]", name, T.LinkString()))
+	if sym.Def != nil {
+		return sym.Def.(*ir.Name)
+	}
+
+	n := ir.NewDeclNameAt(src.NoXPos, ir.OTYPE, sym)
+	n.Class = ir.PEXTERN
+	sym.Def = n
+	typ := types.NewNamed(n)
+	setType(n, typ)
+	// Like any instantiated generic type, the descriptor is written out as
+	// DUPOK by every package that uses the instance.
+	typ.SetIsFullyInstantiated(true)
+	if T.HasShape() {
+		typ.SetHasShape(true)
+	}
+
+	var fields []*types.Field
+	switch name {
+	case "Option": // enum { None; Some(T) }
+		fields = []*types.Field{
+			types.NewField(src.NoXPos, types.BuiltinPkg.Lookup("tag"), enumTagType(2)),
+			types.NewField(src.NoXPos, types.LocalPkg.Lookup("Some_0"), T),
+		}
+	case "Result": // enum { Ok(T); Err(error) }
+		fields = []*types.Field{
+			types.NewField(src.NoXPos, types.BuiltinPkg.Lookup("tag"), enumTagType(2)),
+			types.NewField(src.NoXPos, types.LocalPkg.Lookup("Ok_0"), T),
+			types.NewField(src.NoXPos, types.LocalPkg.Lookup("Err_0"), types.ErrorType),
+		}
+	default:
+		base.Fatalf("unknown predeclared enum %s", name)
+	}
+
+	types.DeferCheckSize()
+	typ.SetUnderlying(types.NewStruct(fields))
+	types.ResumeCheckSize()
+	return n
 }
 
 func (r *reader) unionType() *types.Type {
@@ -702,6 +807,9 @@ func (pr *pkgReader) objIdxMayFail(idx index, implicits, explicits []*types.Type
 		assert(!sym.IsBlank())
 		switch sym.Pkg {
 		case types.BuiltinPkg, types.UnsafePkg:
+			if len(explicits) == 1 && (sym.Name == "Option" || sym.Name == "Result") {
+				return builtinEnumInstance(sym.Name, explicits), nil
+			}
 			return sym.Def.(ir.Node), nil
 		}
 		if pri, ok := objReader[sym]; ok {
@@ -1868,7 +1976,81 @@ func (r *reader) stmt1(tag codeStmt, out *ir.Nodes) ir.Node {
 
 	case stmtSwitch:
 		return r.switchStmt(label)
+
+	case stmtMatch:
+		return r.matchStmt(label)
 	}
+}
+
+// matchStmt reads a match statement and lowers it to
+//
+//	tmp := subject
+//	switch tmp.tag {
+//	case i:
+//		b1 := tmp.V_f1; ...
+//		body
+//	}
+func (r *reader) matchStmt(label *types.Sym) ir.Node {
+	r.Sync(pkgbits.SyncSwitchStmt)
+
+	r.openScope()
+	pos := r.pos()
+	init := r.stmt()
+
+	subject := r.expr()
+	styp := subject.Type()
+	tmp := r.temp(pos, styp)
+	assign := typecheck.Stmt(ir.NewAssignStmt(pos, tmp, subject))
+	tagField := styp.Field(0)
+	tag := typecheck.XDotField(pos, tmp, tagField.Sym)
+
+	clauses := make([]*ir.CaseClause, r.Len())
+	for i := range clauses {
+		if i > 0 {
+			r.closeScope()
+		}
+		r.openScope()
+
+		cpos := r.pos()
+		var cases []ir.Node
+		var bindings []ir.Node
+		for npat := r.Len(); npat > 0; npat-- {
+			idx := r.Len()
+			cases = append(cases, ir.NewBasicLit(cpos, tagField.Type, constant.MakeInt64(int64(idx))))
+			for nb := r.Len(); nb > 0; nb-- {
+				if !r.Bool() {
+					continue // blank binding
+				}
+				bpos := r.pos()
+				sym := r.localIdent()
+				typ := r.typ()
+				name := r.curfn.NewLocal(bpos, sym, typ)
+				r.addLocal(name)
+				field := styp.Field(r.Len())
+
+				as := ir.NewAssignStmt(bpos, name, typecheck.XDotField(bpos, tmp, field.Sym))
+				as.Def = r.initDefn(as, []*ir.Name{name})
+				bindings = append(bindings, typecheck.Stmt(as))
+			}
+		}
+
+		clause := ir.NewCaseStmt(cpos, cases, nil)
+		clause.Body = append(bindings, r.stmts()...)
+		clauses[i] = clause
+	}
+	if len(clauses) > 0 {
+		r.closeScope()
+	}
+	r.closeScope()
+
+	n := ir.NewSwitchStmt(pos, tag, clauses)
+	n.Label = label
+	var inits []ir.Node
+	if init != nil {
+		inits = append(inits, init)
+	}
+	n.SetInit(append(inits, assign))
+	return n
 }
 
 func (r *reader) assignList() ([]*ir.Name, []ir.Node) {
@@ -2237,6 +2419,9 @@ func (r *reader) expr() (res ir.Node) {
 
 	case exprCompLit:
 		return r.compLit()
+
+	case exprEnumLit:
+		return r.enumLit()
 
 	case exprFuncLit:
 		return r.funcLit()
@@ -3173,6 +3358,24 @@ func (r *reader) tempCopy(pos src.XPos, expr ir.Node, init *ir.Nodes) *ir.Name {
 	tmp.Defn = assign
 
 	return tmp
+}
+
+// enumLit reads the construction of an enum variant value and returns a
+// struct literal of the lowered type with the tag and payload fields set.
+func (r *reader) enumLit() ir.Node {
+	pos := r.pos()
+	typ := r.typ()
+	tag := r.Len()
+	n := r.Len()
+
+	tagField := typ.Field(0)
+	elems := make([]ir.Node, 0, n+1)
+	elems = append(elems, ir.NewStructKeyExpr(pos, tagField, ir.NewBasicLit(pos, tagField.Type, constant.MakeInt64(int64(tag)))))
+	for i := 0; i < n; i++ {
+		field := typ.Field(r.Len())
+		elems = append(elems, ir.NewStructKeyExpr(pos, field, r.expr()))
+	}
+	return typecheck.Expr(ir.NewCompLitExpr(pos, ir.OCOMPLIT, typ, elems))
 }
 
 func (r *reader) compLit() ir.Node {

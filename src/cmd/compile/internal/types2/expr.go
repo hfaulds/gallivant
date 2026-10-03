@@ -432,6 +432,14 @@ func (check *Checker) implicitTypeAndValue(x *operand, target Type) (Type, const
 		return nil, nil, InvalidUntypedConversion
 	}
 
+	// None and Err(e) take their type from an Option or Result target.
+	if isUntypedVariant(x.typ()) {
+		if untypedVariantTarget(x.typ(), target) {
+			return target, nil, 0
+		}
+		return nil, nil, InvalidUntypedConversion
+	}
+
 	switch u := target.Underlying().(type) {
 	case *Basic:
 		if x.mode() == constant_ {
@@ -953,24 +961,30 @@ const (
 	statement
 )
 
-// target represent the (signature) type and description of the LHS
-// variable of an assignment, or of a function result variable.
+// target represent the type and description of the LHS variable of an
+// assignment, or of a function result variable. sig is set if the type
+// is (or has a common underlying) signature; it is used to infer the type
+// arguments of generic function values. typ is used by the Some, Ok and
+// Err built-ins to determine their result type.
 type target struct {
+	typ  Type
 	sig  *Signature
 	desc string
 }
 
 // newTarget creates a new target for the given type and description.
-// The result is nil if typ is not a signature.
+// The result is nil if typ is nil.
 func newTarget(typ Type, desc string) *target {
-	if typ != nil {
-		if u, _ := commonUnder(typ, nil); u != nil {
-			if sig, _ := u.(*Signature); sig != nil {
-				return &target{sig, desc}
-			}
+	if typ == nil {
+		return nil
+	}
+	t := &target{typ: typ, desc: desc}
+	if u, _ := commonUnder(typ, nil); u != nil {
+		if sig, _ := u.(*Signature); sig != nil {
+			t.sig = sig
 		}
 	}
-	return nil
+	return t
 }
 
 // rawExpr typechecks expression e and initializes x with the expression
@@ -996,6 +1010,14 @@ func (check *Checker) rawExpr(T *target, x *operand, e syntax.Expr, hint Type, a
 		check.nonGeneric(T, x)
 	}
 
+	// An enum variant constructor may only be called.
+	if x.mode() == value {
+		if sig, _ := x.typ().(*Signature); sig != nil && sig.variantCtor != nil && syntax.Unparen(check.ctorCallFun) != e {
+			check.errorf(x, UncalledVariant, "variant constructor %s must be called", x.expr)
+			x.invalidate()
+		}
+	}
+
 	check.record(x)
 
 	return kind
@@ -1016,7 +1038,7 @@ func (check *Checker) nonGeneric(T *target, x *operand) {
 		}
 	case *Signature:
 		if t.tparams != nil {
-			if enableReverseTypeInference && T != nil {
+			if enableReverseTypeInference && T != nil && T.sig != nil {
 				check.funcInst(T, x.Pos(), x, nil, true)
 				return
 			}
@@ -1138,7 +1160,7 @@ func (check *Checker) exprInternal(T *target, x *operand, e syntax.Expr, hint Ty
 		goto Error
 
 	case *syntax.CallExpr:
-		return check.callExpr(x, e)
+		return check.callExpr(T, x, e)
 
 	case *syntax.ListExpr:
 		// catch-all for unexpected expression lists

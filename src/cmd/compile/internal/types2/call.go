@@ -85,7 +85,7 @@ func (check *Checker) funcInst(T *target, pos syntax.Pos, x *operand, inst *synt
 		var args []*operand
 		var params []*Var
 		var reverse bool
-		if T != nil && sig.tparams != nil {
+		if T != nil && T.sig != nil && sig.tparams != nil {
 			if !versionErr && !check.allowVersion(go1_21) {
 				if inst != nil {
 					check.versionErrorf(instErrPos, go1_21, "partially instantiated function in assignment")
@@ -168,7 +168,7 @@ func (check *Checker) instantiateSignature(pos syntax.Pos, expr syntax.Expr, typ
 	return inst
 }
 
-func (check *Checker) callExpr(x *operand, call *syntax.CallExpr) exprKind {
+func (check *Checker) callExpr(T *target, x *operand, call *syntax.CallExpr) exprKind {
 	var inst *syntax.IndexExpr // function instantiation, if any
 	if iexpr, _ := call.Fun.(*syntax.IndexExpr); iexpr != nil {
 		if check.indexExpr(x, iexpr) {
@@ -181,7 +181,12 @@ func (check *Checker) callExpr(x *operand, call *syntax.CallExpr) exprKind {
 		x.expr = iexpr
 		check.record(x)
 	} else {
+		// Let rawExpr know that call.Fun is being called, so that a
+		// variant constructor is accepted.
+		prev := check.ctorCallFun
+		check.ctorCallFun = call.Fun
 		check.exprOrType(x, call.Fun, true)
+		check.ctorCallFun = prev
 	}
 	// x.typ may be generic
 
@@ -232,7 +237,7 @@ func (check *Checker) callExpr(x *operand, call *syntax.CallExpr) exprKind {
 	case builtin:
 		// no need to check for non-genericity here
 		id := x.id
-		if !check.builtin(x, call, id) {
+		if !check.builtin(T, x, call, id) {
 			x.invalidate()
 		}
 		x.expr = call
@@ -820,6 +825,27 @@ func (check *Checker) selector(x *operand, e *syntax.SelectorExpr, wantType bool
 	// its base type must also be complete.
 	if p, ok := x.typ().Underlying().(*Pointer); ok && !check.isComplete(p.base) {
 		goto Error
+	}
+
+	// Enum variants are selected from their type: T.Variant is a value
+	// of type T, and T.Variant(payload) constructs one.
+	if x.mode() == typexpr {
+		if enum, _ := x.typ().Underlying().(*Enum); enum != nil {
+			if v := enum.VariantByName(sel); v != nil {
+				if !v.Exported() && v.pkg != nil && v.pkg != check.pkg {
+					check.errorf(e.Sel, UnexportedName, "variant %s not exported by enum %s", sel, x.typ())
+					goto Error
+				}
+				check.recordUse(e.Sel, v)
+				x.mode_ = value
+				if v.HasPayload() {
+					x.typ_ = v.constructorSig(x.typ())
+				}
+				x.expr = e
+				return
+			}
+			// Not a variant: fall through to method lookup.
+		}
 	}
 
 	obj, index, indirect = lookupFieldOrMethod(x.typ(), x.mode() == variable, check.pkg, sel, false)

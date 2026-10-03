@@ -254,6 +254,8 @@ func compositeKind(typ Type) string {
 		return "slice"
 	case *Struct:
 		return "struct"
+	case *Enum:
+		return "enum"
 	case *Pointer:
 		return "pointer"
 	case *Signature:

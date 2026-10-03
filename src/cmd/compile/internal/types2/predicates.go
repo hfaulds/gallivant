@@ -166,7 +166,7 @@ func comparableType(T Type, dynamic bool, seen map[Type]bool) *typeError {
 	switch t := T.Underlying().(type) {
 	case *Basic:
 		// assume invalid types to be comparable to avoid follow-up errors
-		if t.kind == UntypedNil {
+		if t.kind == UntypedNil || t.kind == UntypedNone || t.kind == UntypedErr {
 			return typeErrorf("")
 		}
 
@@ -177,6 +177,15 @@ func comparableType(T Type, dynamic bool, seen map[Type]bool) *typeError {
 		for _, f := range t.fields {
 			if comparableType(f.typ, dynamic, seen) != nil {
 				return typeErrorf("struct containing %s cannot be compared", f.typ)
+			}
+		}
+
+	case *Enum:
+		for _, v := range t.variants {
+			for _, f := range v.fields {
+				if comparableType(f.typ, dynamic, seen) != nil {
+					return typeErrorf("enum variant %s containing %s cannot be compared", v.name, f.typ)
+				}
 			}
 		}
 
@@ -280,6 +289,26 @@ func (c *comparer) identical(x, y Type, p *ifacePair) bool {
 		// Two slice types are identical if they have identical element types.
 		if y, ok := y.(*Slice); ok {
 			return c.identical(x.elem, y.elem, p)
+		}
+
+	case *Enum:
+		// Two enum types are identical if they have the same sequence of
+		// variants with the same names and payload field types.
+		if y, ok := y.(*Enum); ok {
+			if len(x.variants) == len(y.variants) {
+				for i, v := range x.variants {
+					w := y.variants[i]
+					if v.name != w.name || v.hasParens != w.hasParens || len(v.fields) != len(w.fields) {
+						return false
+					}
+					for j, f := range v.fields {
+						if !c.identical(f.typ, w.fields[j].typ, p) {
+							return false
+						}
+					}
+				}
+				return true
+			}
 		}
 
 	case *Struct:

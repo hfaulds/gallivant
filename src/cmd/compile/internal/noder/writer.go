@@ -598,6 +598,10 @@ func (pw *pkgWriter) typIdx(typ types2.Type, dict *writerDict) typeInfo {
 		w.Code(pkgbits.TypeStruct)
 		w.structType(typ)
 
+	case *types2.Enum:
+		w.Code(pkgbits.TypeEnum)
+		w.enumType(typ)
+
 	case *types2.Interface:
 		// Handle "any" as reference to its TypeName.
 		// The underlying "any" interface is canonical, so this logic handles both
@@ -658,6 +662,37 @@ func (w *writer) unionType(typ *types2.Union) {
 		w.Bool(t.Tilde())
 		w.typ(t.Type())
 	}
+}
+
+// enumType writes an enum type: its variants, and for each variant its
+// payload fields. The compiler reader lowers the enum to a struct (see
+// reader.enumType); the go/types importers reconstruct an Enum.
+func (w *writer) enumType(typ *types2.Enum) {
+	w.Len(typ.NumVariants())
+	for i := 0; i < typ.NumVariants(); i++ {
+		v := typ.Variant(i)
+		w.pos(v)
+		w.selector(v)
+		w.Bool(v.HasPayload())
+		w.Len(v.NumFields())
+		for j := 0; j < v.NumFields(); j++ {
+			f := v.Field(j)
+			w.pos(f)
+			w.selector(f)
+			w.typ(f.Type())
+		}
+	}
+}
+
+// enumFieldIndex returns the index, in the struct an enum is lowered to,
+// of payload field j of variant i: field 0 is the tag, followed by the
+// payload fields of every variant in declaration order.
+func enumFieldIndex(typ *types2.Enum, i, j int) int {
+	idx := 1
+	for k := 0; k < i; k++ {
+		idx += typ.Variant(k).NumFields()
+	}
+	return idx + j
 }
 
 func (w *writer) interfaceType(typ *types2.Interface) {
@@ -1482,7 +1517,76 @@ func (w *writer) stmt1(stmt syntax.Stmt) {
 	case *syntax.SwitchStmt:
 		w.Code(stmtSwitch)
 		w.switchStmt(stmt)
+
+	case *syntax.MatchStmt:
+		w.Code(stmtMatch)
+		w.matchStmt(stmt)
 	}
+}
+
+// matchStmt writes a match statement. The reader lowers it to a switch
+// on the enum's tag field with the payload bindings assigned from the
+// corresponding payload fields at the start of each case body.
+func (w *writer) matchStmt(stmt *syntax.MatchStmt) {
+	w.Sync(pkgbits.SyncSwitchStmt)
+
+	w.openScope(stmt.Pos())
+	w.pos(stmt)
+	w.stmt(stmt.Init)
+
+	tagType := w.p.typeOf(stmt.Tag)
+	enum, ok := tagType.Underlying().(*types2.Enum)
+	if !ok {
+		w.p.fatalf(stmt.Tag, "match on non-enum type %v", tagType)
+	}
+	w.expr(stmt.Tag)
+
+	w.Len(len(stmt.Body))
+	for i, clause := range stmt.Body {
+		if i > 0 {
+			w.closeScope(clause.Pos())
+		}
+		w.openScope(clause.Pos())
+
+		w.pos(clause)
+
+		patterns := syntax.UnpackListExpr(clause.Cases) // nil means default
+		w.Len(len(patterns))
+		for _, pat := range patterns {
+			var name *syntax.Name
+			var bindings []syntax.Expr
+			switch p := syntax.Unparen(pat).(type) {
+			case *syntax.Name:
+				name = p
+			case *syntax.CallExpr:
+				name = syntax.Unparen(p.Fun).(*syntax.Name)
+				bindings = p.ArgList
+			default:
+				w.p.unexpected("match pattern", pat)
+			}
+			v := w.p.info.Uses[name].(*types2.Variant)
+			w.Len(v.Index())
+			w.Len(len(bindings))
+			for j, b := range bindings {
+				n := syntax.Unparen(b).(*syntax.Name)
+				obj, _ := w.p.info.Defs[n].(*types2.Var)
+				if w.Bool(obj != nil) {
+					w.pos(obj)
+					w.localIdent(obj)
+					w.typ(obj.Type())
+					w.addLocal(obj)
+					w.Len(enumFieldIndex(enum, v.Index(), j))
+				}
+			}
+		}
+
+		w.stmts(clause.Body)
+	}
+	if len(stmt.Body) > 0 {
+		w.closeScope(stmt.Rbrace)
+	}
+
+	w.closeScope(stmt.Rbrace)
 }
 
 func (w *writer) assignList(expr syntax.Expr) {
@@ -1916,6 +2020,14 @@ func (w *writer) expr(expr syntax.Expr) {
 			return
 		}
 
+		// The predeclared None, or a payload-less variant T.V selected
+		// from its enum type.
+		if v, isVariant := obj.(*types2.Variant); isVariant {
+			w.Code(exprEnumLit)
+			w.enumLit(expr, tv.Type, v, nil)
+			return
+		}
+
 		// With shape types (and particular pointer shaping), we may have
 		// an expression of type "go.shape.*uint8", but need to reshape it
 		// to another shape-identical type to allow use in field
@@ -1964,6 +2076,13 @@ func (w *writer) expr(expr syntax.Expr) {
 		w.funcLit(expr)
 
 	case *syntax.SelectorExpr:
+		if v, ok := w.p.info.Uses[expr.Sel].(*types2.Variant); ok {
+			// payload-less variant value T.V
+			w.Code(exprEnumLit)
+			w.enumLit(expr, w.p.typeOf(expr), v, nil)
+			return
+		}
+
 		sel, ok := w.p.info.Selections[expr]
 		assert(ok)
 
@@ -2077,9 +2196,29 @@ func (w *writer) expr(expr syntax.Expr) {
 			break
 		}
 
+		// Enum variant constructor T.V(args).
+		if sel, ok := syntax.Unparen(expr.Fun).(*syntax.SelectorExpr); ok {
+			if v, ok := w.p.info.Uses[sel.Sel].(*types2.Variant); ok {
+				w.Code(exprEnumLit)
+				w.enumLit(expr, w.p.typeOf(expr), v, expr.ArgList)
+				return
+			}
+		}
+
 		var rtype types2.Type
 		if tv.IsBuiltin() {
 			switch obj, _ := lookupObj(w.p, syntax.Unparen(expr.Fun)); obj.Name() {
+			case "Some", "Ok", "Err":
+				// Predeclared constructors for Option and Result.
+				typ := w.p.typeOf(expr)
+				enum, ok := typ.Underlying().(*types2.Enum)
+				if !ok {
+					w.p.fatalf(expr, "%s has non-enum type %v", obj.Name(), typ)
+				}
+				w.Code(exprEnumLit)
+				w.enumLit(expr, typ, enum.VariantByName(obj.Name()), expr.ArgList)
+				return
+
 			case "make":
 				assert(len(expr.ArgList) >= 1)
 				assert(!expr.HasDots)
@@ -2462,6 +2601,31 @@ func (w *writer) convertExpr(dst types2.Type, expr syntax.Expr, implicit bool) {
 	w.Bool(isTypeParam(dst))
 	w.Bool(identical)
 	w.expr(expr)
+}
+
+// enumLit writes the construction of variant v of the enum type typ with
+// the given payload arguments: the type, the tag value, and for each
+// payload the index of its field in the lowered struct and its value.
+func (w *writer) enumLit(expr syntax.Expr, typ types2.Type, v *types2.Variant, args []syntax.Expr) {
+	enum, ok := typ.Underlying().(*types2.Enum)
+	if !ok {
+		w.p.fatalf(expr, "enum literal of non-enum type %v", typ)
+	}
+	// Use the variant of the (possibly instantiated) type typ so that
+	// payload field types are concrete.
+	iv := enum.Variant(v.Index())
+	if len(args) != iv.NumFields() {
+		w.p.fatalf(expr, "variant %s expects %d arguments, got %d", v.Name(), iv.NumFields(), len(args))
+	}
+
+	w.pos(expr)
+	w.typ(typ)
+	w.Len(v.Index())
+	w.Len(len(args))
+	for j, arg := range args {
+		w.Len(enumFieldIndex(enum, v.Index(), j))
+		w.implicitConvExpr(iv.Field(j).Type(), arg)
+	}
 }
 
 func (w *writer) compLit(lit *syntax.CompositeLit) {

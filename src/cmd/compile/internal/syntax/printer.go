@@ -484,6 +484,34 @@ func (p *printer) printRawNode(n Node) {
 		}
 		p.print(_Rbrace)
 
+	case *EnumType:
+		p.print(_Name, "enum")
+		if len(n.VariantList) > 0 && p.linebreaks {
+			p.print(blank)
+		}
+		p.print(_Lbrace)
+		if len(n.VariantList) > 0 {
+			if p.linebreaks {
+				p.print(newline, indent)
+			}
+			for i, v := range n.VariantList {
+				if i > 0 {
+					p.print(_Semi, blank)
+				}
+				p.printNode(v)
+			}
+			if p.linebreaks {
+				p.print(outdent, newline)
+			}
+		}
+		p.print(_Rbrace)
+
+	case *Variant:
+		p.print(n.Name)
+		if n.HasParens {
+			p.printParameterList(n.FieldList, 0)
+		}
+
 	case *FuncType:
 		p.print(_Func)
 		p.printSignature(n)
@@ -597,6 +625,14 @@ func (p *printer) printRawNode(n Node) {
 	case *SelectStmt:
 		p.print(_Select, blank) // for now
 		p.printSelectBody(n.Body)
+
+	case *MatchStmt:
+		p.print(_Name, "match", blank)
+		if n.Init != nil {
+			p.print(n.Init, _Semi, blank)
+		}
+		p.print(n.Tag, blank)
+		p.printSwitchBody(n.Body)
 
 	case *RangeClause:
 		if n.Lhs != nil {

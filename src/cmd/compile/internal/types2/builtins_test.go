@@ -105,6 +105,12 @@ var builtinCalls = []struct {
 	{"min", `var x int    ; _ = min(x        )`, `func(int) int`},
 	{"min", `var x int    ; _ = min(0, x     )`, `func(int, int) int`},
 	{"min", `var x string ; _ = min("a", x   )`, `func(string, string) string`},
+
+	{"Some", `var x int; _ = Some(x)`, `func(int) Option[int]`},
+	{"Some", `var o Option[float64] = Some(1); _ = o`, `func(float64) Option[float64]`},
+	{"Ok", `var x string; _ = Ok(x)`, `func(string) Result[string]`},
+	{"Ok", `var r Result[int] = Ok(1); _ = r`, `func(int) Result[int]`},
+	{"Err", `var e error; var r Result[int] = Err(e); _ = r`, `func(error) Result[int]`},
 	{"min", `var x float32; _ = min(0, 1.0, x)`, `func(float32, float32, float32) float32`},
 
 	{"new", `_ = new(int)`, `func(int) *int`},

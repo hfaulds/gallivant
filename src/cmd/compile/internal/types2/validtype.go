@@ -56,6 +56,15 @@ func (check *Checker) validType0(pos syntax.Pos, typ Type, nest, path []*Named) 
 			}
 		}
 
+	case *Enum:
+		for _, v := range t.variants {
+			for _, f := range v.fields {
+				if !check.validType0(pos, f.typ, nest, path) {
+					return false
+				}
+			}
+		}
+
 	case *Union:
 		for _, t := range t.terms {
 			if !check.validType0(pos, t.typ, nest, path) {

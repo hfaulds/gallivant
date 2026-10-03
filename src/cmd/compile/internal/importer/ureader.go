@@ -286,11 +286,33 @@ func (r *reader) doTyp() (res types2.Type) {
 		return types2.NewSlice(r.typ())
 	case pkgbits.TypeStruct:
 		return r.structType()
+	case pkgbits.TypeEnum:
+		return r.enumType()
 	case pkgbits.TypeInterface:
 		return r.interfaceType()
 	case pkgbits.TypeUnion:
 		return r.unionType()
 	}
+}
+
+func (r *reader) enumType() *types2.Enum {
+	variants := make([]*types2.Variant, r.Len())
+	for i := range variants {
+		pos := r.pos()
+		pkg, name := r.selector()
+		hasParens := r.Bool()
+		fields := make([]*types2.Var, r.Len())
+		for j := range fields {
+			fpos := r.pos()
+			fpkg, fname := r.selector()
+			ftyp := r.typ()
+			fields[j] = types2.NewField(fpos, fpkg, fname, ftyp, false)
+		}
+		variants[i] = types2.NewVariant(pos, pkg, name, i, fields, hasParens)
+	}
+	// The variants' type is set when the enclosing named type's
+	// underlying type is set (see Named.SetUnderlying).
+	return types2.NewEnum(variants, nil)
 }
 
 func (r *reader) structType() *types2.Struct {

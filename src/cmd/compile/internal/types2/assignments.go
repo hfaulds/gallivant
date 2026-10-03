@@ -51,6 +51,12 @@ func (check *Checker) assignment(x *operand, T Type, context string) {
 					x.invalidate()
 					return
 				}
+			} else if isUntypedVariant(x.typ()) {
+				if T == nil || isNonTypeParamInterface(T) {
+					check.errorf(x, UntypedNilUse, "use of %s in %s (needs %s type)", x.expr, context, untypedVariantKind(x.typ()))
+					x.invalidate()
+					return
+				}
 			} else if T == nil || isNonTypeParamInterface(T) {
 				target = Default(x.typ())
 			}
@@ -165,6 +171,12 @@ func (check *Checker) initVar(lhs *Var, x *operand, context string) {
 			// convert untyped types to default types
 			if typ == Typ[UntypedNil] {
 				check.errorf(x, UntypedNilUse, "use of untyped nil in %s", context)
+				lhs.typ = Typ[Invalid]
+				x.invalidate()
+				return
+			}
+			if isUntypedVariant(typ) {
+				check.errorf(x, UntypedNilUse, "use of %s in %s (needs %s type)", x.expr, context, untypedVariantKind(typ))
 				lhs.typ = Typ[Invalid]
 				x.invalidate()
 				return

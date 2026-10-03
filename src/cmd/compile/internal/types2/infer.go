@@ -581,6 +581,14 @@ func (w *tpWalker) isParameterized(typ Type) (res bool) {
 	case *Struct:
 		return w.varList(t.fields)
 
+	case *Enum:
+		for _, v := range t.variants {
+			if w.varList(v.fields) {
+				return true
+			}
+		}
+		return false
+
 	case *Pointer:
 		return w.isParameterized(t.base)
 
@@ -736,6 +744,11 @@ func (w *cycleFinder) typ(typ Type) {
 
 	case *Struct:
 		w.varList(t.fields)
+
+	case *Enum:
+		for _, v := range t.variants {
+			w.varList(v.fields)
+		}
 
 	case *Pointer:
 		w.typ(t.base)

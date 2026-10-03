@@ -1482,4 +1482,44 @@ const (
 	// errors. The solution is to rebuild the application with a
 	// newer Go release.
 	TooNew
+
+	// InvalidEnum occurs when an enum type literal appears anywhere other
+	// than as the type of a type definition, or when an enum declaration
+	// is malformed (duplicate variant names, blank variant names).
+	//
+	// Example:
+	//  var x enum { A; B }
+	InvalidEnum
+
+	// InvalidMatch occurs when a match statement is applied to a value
+	// that is not of enum type, or when a case pattern is not a variant
+	// of the matched enum, has the wrong number of bindings, or is
+	// otherwise malformed.
+	//
+	// Example:
+	//  func f(x int) {
+	//  	match x {
+	//  	}
+	//  }
+	InvalidMatch
+
+	// NonExhaustiveMatch occurs when a match statement without a default
+	// clause does not handle every variant of the matched enum.
+	//
+	// Example:
+	//  type T enum { A; B }
+	//  func f(x T) {
+	//  	match x {
+	//  	case A:
+	//  	}
+	//  }
+	NonExhaustiveMatch
+
+	// UncalledVariant occurs when an enum variant constructor is used as
+	// a value instead of being called.
+	//
+	// Example:
+	//  type T enum { A(int) }
+	//  var f = T.A
+	UncalledVariant
 )

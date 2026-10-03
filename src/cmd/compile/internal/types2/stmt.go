@@ -11,6 +11,7 @@ import (
 	"go/constant"
 	. "internal/types/errors"
 	"slices"
+	"strings"
 )
 
 // decl may be nil
@@ -620,6 +621,14 @@ func (check *Checker) stmt(ctxt stmtContext, s syntax.Stmt) {
 			check.switchStmt(inner, s)
 		}
 
+	case *syntax.MatchStmt:
+		inner |= breakOk
+		check.openScope(s, "match")
+		defer check.closeScope()
+
+		check.simpleStmt(s.Init)
+		check.matchStmt(inner, s)
+
 	case *syntax.SelectStmt:
 		inner |= breakOk
 
@@ -758,6 +767,154 @@ func (check *Checker) switchStmt(inner stmtContext, s *syntax.SwitchStmt) {
 		check.stmtList(inner, clause.Body)
 		check.closeScope()
 	}
+}
+
+// matchStmt type-checks a match statement. The init statement has already
+// been handled and a scope opened.
+func (check *Checker) matchStmt(inner stmtContext, s *syntax.MatchStmt) {
+	var x operand
+	check.expr(nil, &x, s.Tag)
+	// By checking assignment of x to an invisible temporary
+	// (as a compiler would), we get all the relevant checks.
+	check.assignment(&x, nil, "match expression")
+
+	var enum *Enum
+	if x.isValid() {
+		enum, _ = x.typ().Underlying().(*Enum)
+		if enum == nil {
+			check.errorf(&x, InvalidMatch, "cannot match on %s (%s is not an enum type)", &x, x.typ())
+			x.invalidate()
+		}
+	}
+
+	check.multipleSwitchDefaults(s.Body)
+
+	seen := make(map[*Variant]syntax.Pos)
+	hasDefault := false
+	for _, clause := range s.Body {
+		if clause == nil {
+			check.error(clause, InvalidSyntaxTree, "incorrect match case")
+			continue
+		}
+		check.openScope(clause, "case")
+		if clause.Cases == nil {
+			hasDefault = true
+		} else {
+			patterns := syntax.UnpackListExpr(clause.Cases)
+			for _, pat := range patterns {
+				check.matchPattern(&x, enum, pat, seen, len(patterns) > 1, clause.Colon)
+			}
+		}
+		check.stmtList(inner, clause.Body)
+		check.closeScope()
+	}
+
+	if enum != nil && !hasDefault {
+		var missing []string
+		for _, v := range enum.variants {
+			if _, ok := seen[v]; !ok {
+				missing = append(missing, v.name)
+			}
+		}
+		if len(missing) > 0 {
+			check.errorf(s, NonExhaustiveMatch, "match on %s is not exhaustive: missing %s", x.typ(), strings.Join(missing, ", "))
+		}
+	}
+}
+
+// matchPattern type-checks a single case pattern of a match statement on
+// the operand x of enum type enum (nil if x is invalid). A pattern is either
+// Variant or Variant(b1, b2, ...), where each binding is a new identifier or
+// the blank identifier. Bindings are declared in the current (case) scope and
+// are visible from scopePos on. If multi is set, the pattern is one of
+// several alternatives in the case and must not bind any identifiers.
+func (check *Checker) matchPattern(x *operand, enum *Enum, pat syntax.Expr, seen map[*Variant]syntax.Pos, multi bool, scopePos syntax.Pos) {
+	var name *syntax.Name
+	var bindings []syntax.Expr
+	hasParens := false
+	switch p := syntax.Unparen(pat).(type) {
+	case *syntax.Name:
+		name = p
+	case *syntax.CallExpr:
+		name, _ = syntax.Unparen(p.Fun).(*syntax.Name)
+		bindings = p.ArgList
+		hasParens = true
+		if p.HasDots {
+			check.error(p, InvalidMatch, "invalid use of ... in match pattern")
+		}
+	}
+
+	// declareBindings declares the pattern's bindings with the given field
+	// types (nil for all-invalid) so that the case body can be checked.
+	declareBindings := func(fields []*Var) {
+		for i, b := range bindings {
+			n, ok := syntax.Unparen(b).(*syntax.Name)
+			if !ok {
+				check.errorf(b, InvalidMatch, "invalid binding %s in match pattern (expected identifier or _)", b)
+				check.use(b)
+				continue
+			}
+			if n.Value == "_" {
+				check.recordDef(n, nil)
+				continue
+			}
+			if multi {
+				check.errorf(n, InvalidMatch, "cannot bind %s in a case with multiple patterns", n.Value)
+			}
+			var typ Type = Typ[Invalid]
+			if i < len(fields) {
+				typ = fields[i].typ
+			}
+			obj := newVar(LocalVar, n.Pos(), check.pkg, n.Value, typ)
+			check.declare(check.scope, n, obj, scopePos)
+		}
+	}
+
+	if enum == nil {
+		// The subject is invalid; an error was reported already.
+		declareBindings(nil)
+		return
+	}
+
+	if name == nil {
+		check.errorf(pat, InvalidMatch, "invalid match pattern %s (expected Variant or Variant(bindings))", pat)
+		declareBindings(nil)
+		return
+	}
+
+	v := enum.VariantByName(name.Value)
+	if v == nil {
+		check.errorf(name, InvalidMatch, "%s has no variant %s", x.typ(), name.Value)
+		declareBindings(nil)
+		return
+	}
+	if !v.Exported() && v.pkg != nil && v.pkg != check.pkg {
+		check.errorf(name, UnexportedName, "variant %s not exported by enum %s", name.Value, x.typ())
+	}
+	check.recordUse(name, v)
+
+	if prev, ok := seen[v]; ok {
+		err := check.newError(DuplicateCase)
+		err.addf(name, "duplicate case %s in match", name.Value)
+		err.addf(prev, "previous case")
+		err.report()
+	} else {
+		seen[v] = name.Pos()
+	}
+
+	if hasParens != v.HasPayload() {
+		if v.HasPayload() {
+			check.errorf(pat, InvalidMatch, "variant %s has %d payload field(s); write %s(...)", v.name, len(v.fields), v.name)
+		} else {
+			check.errorf(pat, InvalidMatch, "variant %s has no payload; write %s without parentheses", v.name, v.name)
+		}
+		declareBindings(v.fields)
+		return
+	}
+	if hasParens && len(bindings) != len(v.fields) {
+		check.errorf(pat, InvalidMatch, "variant %s has %d payload field(s) but pattern has %d binding(s)", v.name, len(v.fields), len(bindings))
+	}
+	declareBindings(v.fields)
 }
 
 func (check *Checker) typeSwitchStmt(inner stmtContext, s *syntax.SwitchStmt, guard *syntax.TypeSwitchGuard) {

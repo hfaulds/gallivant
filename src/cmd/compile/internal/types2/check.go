@@ -44,6 +44,7 @@ type environment struct {
 	isPanic       map[*syntax.CallExpr]bool // set of panic call expressions (used for termination check)
 	hasLabel      bool                      // set if a function makes use of labels (only ~1% of functions); unused outside functions
 	hasCallOrRecv bool                      // set if an expression contains a function call or channel receive operation
+	ctorCallFun   syntax.Expr               // the Fun of the call expression currently being checked, if any (see rawExpr)
 }
 
 // lookupScope looks up name in the current environment and if an object

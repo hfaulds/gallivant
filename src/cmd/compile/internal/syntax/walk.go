@@ -197,6 +197,15 @@ func (w walker) node(n Node) {
 		}
 		w.node(n.Type)
 
+	case *EnumType:
+		for _, v := range n.VariantList {
+			w.node(v)
+		}
+
+	case *Variant:
+		w.node(n.Name)
+		w.fieldList(n.FieldList)
+
 	case *InterfaceType:
 		w.fieldList(n.MethodList)
 
@@ -285,6 +294,15 @@ func (w walker) node(n Node) {
 		}
 
 	case *SelectStmt:
+		for _, s := range n.Body {
+			w.node(s)
+		}
+
+	case *MatchStmt:
+		if n.Init != nil {
+			w.node(n.Init)
+		}
+		w.node(n.Tag)
 		for _, s := range n.Body {
 			w.node(s)
 		}

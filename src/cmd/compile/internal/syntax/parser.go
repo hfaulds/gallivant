@@ -660,7 +660,7 @@ func (p *parser) typeDecl(group *Group) Decl {
 				// d.Name "[" pname ptype "," ...
 				d.TParamList = p.paramList(pname, ptype, _Rbrack, true, false) // ptype may be nil
 				d.Alias = p.gotAssign()
-				d.Type = p.typeOrNil()
+				d.Type = p.declTypeOrNil()
 			} else {
 				// d.Name "[" pname "]" ...
 				// d.Name "[" x ...
@@ -676,7 +676,7 @@ func (p *parser) typeDecl(group *Group) Decl {
 		}
 	} else {
 		d.Alias = p.gotAssign()
-		d.Type = p.typeOrNil()
+		d.Type = p.declTypeOrNil()
 	}
 
 	if d.Type == nil {
@@ -1436,6 +1436,58 @@ func (p *parser) typeOrNil() Expr {
 	}
 
 	return nil
+}
+
+// declTypeOrNil parses the type of a type declaration. In addition to the
+// types accepted by typeOrNil it accepts an enum type, which may only appear
+// in this position. "enum" is a contextual keyword: it is only treated as one
+// when it is immediately followed by "{", so a type named enum keeps working.
+func (p *parser) declTypeOrNil() Expr {
+	if trace {
+		defer p.trace("declTypeOrNil")()
+	}
+
+	if p.tok == _Name && p.lit == "enum" {
+		pos := p.pos()
+		name := p.name()
+		if p.tok == _Lbrace {
+			return p.enumType(pos)
+		}
+		// enum is an ordinary type name here
+		return p.qualifiedName(name)
+	}
+	return p.typeOrNil()
+}
+
+// EnumType   = "enum" "{" { VariantDecl ";" } "}" .
+// VariantDecl = identifier [ "(" [ ParameterList ] ")" ] .
+//
+// The "enum" name has already been consumed; pos is its position.
+func (p *parser) enumType(pos Pos) *EnumType {
+	if trace {
+		defer p.trace("enumType")()
+	}
+
+	typ := new(EnumType)
+	typ.pos = pos
+
+	p.want(_Lbrace)
+	p.list("enum type", _Semi, _Rbrace, func() bool {
+		v := new(Variant)
+		v.pos = p.pos()
+		v.Name = p.name()
+		if p.got(_Lparen) {
+			v.HasParens = true
+			v.FieldList = p.paramList(nil, nil, _Rparen, false, false)
+			if v.FieldList == nil {
+				v.FieldList = []*Field{}
+			}
+		}
+		typ.VariantList = append(typ.VariantList, v)
+		return false
+	})
+
+	return typ
 }
 
 func (p *parser) typeInstance(typ Expr) Expr {
@@ -2351,7 +2403,13 @@ func (p *parser) forStmt() Stmt {
 
 func (p *parser) header(keyword token) (init SimpleStmt, cond Expr, post SimpleStmt) {
 	p.want(keyword)
+	return p.headerRest(keyword)
+}
 
+// headerRest parses the header of an if, for, switch or match statement
+// after the keyword has been consumed. For a match statement, keyword is
+// _Switch: the two statements share their header syntax.
+func (p *parser) headerRest(keyword token) (init SimpleStmt, cond Expr, post SimpleStmt) {
 	if p.tok == _Lbrace {
 		if keyword == _If {
 			p.syntaxError("missing condition in if statement")
@@ -2512,6 +2570,80 @@ func (p *parser) switchStmt() *SwitchStmt {
 	return s
 }
 
+// matchStmtOrSimple is called at the start of a statement that begins with
+// the identifier "match", which has not yet been consumed. "match" is a
+// contextual keyword: it starts a match statement only when it is followed
+// by a token that can begin an expression but could never follow an
+// identifier at the start of a valid Go statement. Otherwise "match" is an
+// ordinary identifier and the statement is parsed as usual.
+func (p *parser) matchStmtOrSimple() Stmt {
+	if trace {
+		defer p.trace("matchStmtOrSimple")()
+	}
+
+	pos := p.pos()
+	name := p.name() // consume "match"
+
+	if p.startsMatchSubject() {
+		return p.matchStmt(pos)
+	}
+
+	// "match" is an identifier: continue as in stmtOrNil's _Name case.
+	p.clearPragma()
+	lhs := p.exprListFrom(p.binaryExpr(p.pexpr(name, false), 0))
+	if label, ok := lhs.(*Name); ok && p.tok == _Colon {
+		return p.labeledStmtOrNil(label)
+	}
+	return p.simpleStmt(lhs, 0)
+}
+
+// startsMatchSubject reports whether the current token, which follows the
+// identifier "match" at the start of a statement, can only be the start of a
+// match subject expression. Tokens such as "(", "[", "<-", ".", "=", ":=" and
+// "," keep their Go meaning after an identifier and are excluded.
+func (p *parser) startsMatchSubject() bool {
+	switch p.tok {
+	case _Name, _Literal, _Func, _Struct, _Map, _Chan, _Interface, _Star:
+		return true
+	case _Operator:
+		switch p.op {
+		case Add, Sub, Not, Xor, And:
+			return true
+		}
+	}
+	return false
+}
+
+// MatchStmt = "match" [ SimpleStmt ";" ] Expression "{" { CaseClause } "}" .
+//
+// The "match" keyword has already been consumed; pos is its position.
+func (p *parser) matchStmt(pos Pos) *MatchStmt {
+	if trace {
+		defer p.trace("matchStmt")()
+	}
+
+	s := new(MatchStmt)
+	s.pos = pos
+
+	s.Init, s.Tag, _ = p.headerRest(_Switch)
+	if s.Tag == nil {
+		p.syntaxError("missing expression in match statement")
+		s.Tag = p.badExpr()
+	}
+
+	if !p.got(_Lbrace) {
+		p.syntaxError("missing { after match clause")
+		p.advance(_Case, _Default, _Rbrace)
+	}
+	for p.tok != _EOF && p.tok != _Rbrace {
+		s.Body = append(s.Body, p.caseClause())
+	}
+	s.Rbrace = p.pos()
+	p.want(_Rbrace)
+
+	return s
+}
+
 func (p *parser) selectStmt() *SelectStmt {
 	if trace {
 		defer p.trace("selectStmt")()
@@ -2615,6 +2747,9 @@ func (p *parser) stmtOrNil() Stmt {
 	// Most statements (assignments) start with an identifier;
 	// look for it first before doing anything more expensive.
 	if p.tok == _Name {
+		if p.lit == "match" {
+			return p.matchStmtOrSimple()
+		}
 		p.clearPragma()
 		lhs := p.exprList()
 		if label, ok := lhs.(*Name); ok && p.tok == _Colon {
@@ -2830,7 +2965,12 @@ func (p *parser) exprList() Expr {
 		defer p.trace("exprList")()
 	}
 
-	x := p.expr()
+	return p.exprListFrom(p.expr())
+}
+
+// exprListFrom completes an expression list whose first expression x has
+// already been parsed.
+func (p *parser) exprListFrom(x Expr) Expr {
 	if p.got(_Comma) {
 		list := []Expr{x, p.expr()}
 		for p.got(_Comma) {

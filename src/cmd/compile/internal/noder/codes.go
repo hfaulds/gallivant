@@ -28,6 +28,7 @@ const (
 	stmtFor
 	stmtSwitch
 	stmtSelect
+	stmtMatch // Gallivant: match statement on an enum value
 )
 
 // A codeExpr distinguishes among expression encodings.
@@ -63,6 +64,7 @@ const (
 	exprRecv
 	exprReshape
 	exprRuntimeBuiltin // a reference to a runtime function from transformed syntax. Followed by string name, e.g., "panicrangeexit"
+	exprEnumLit        // Gallivant: construction of an enum variant value
 )
 
 type codeAssign int

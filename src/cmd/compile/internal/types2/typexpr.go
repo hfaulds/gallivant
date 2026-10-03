@@ -128,6 +128,11 @@ func (check *Checker) ident(x *operand, e *syntax.Name, wantType bool) {
 	case *Nil:
 		x.mode_ = nilvalue
 
+	case *Variant:
+		// Only the predeclared None can be found by name: enum variants
+		// are not in scope and are selected from their type instead.
+		x.mode_ = value
+
 	default:
 		panic("unreachable")
 	}
@@ -338,6 +343,21 @@ func (check *Checker) typInternal(e0 syntax.Expr, def *TypeName) (T Type) {
 	case *syntax.InterfaceType:
 		typ := check.newInterface()
 		check.interfaceType(typ, e, def)
+		return typ
+
+	case *syntax.EnumType:
+		if def == nil || asNamed(def.typ) == nil {
+			check.error(e, InvalidEnum, "enum type must be the type of a type definition (type T enum { ... })")
+			// Still check the variant payload types for errors.
+			for _, v := range e.VariantList {
+				for _, f := range v.FieldList {
+					check.varType(f.Type)
+				}
+			}
+			return Typ[Invalid]
+		}
+		typ := new(Enum)
+		check.enumType(typ, e, def)
 		return typ
 
 	case *syntax.MapType:

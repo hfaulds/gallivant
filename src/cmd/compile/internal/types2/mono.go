@@ -255,6 +255,13 @@ func (w *monoGraph) assign(pkg *Package, pos syntax.Pos, tpar *TypeParam, targ T
 			for i := 0; i < typ.NumFields(); i++ {
 				do(typ.Field(i).Type())
 			}
+		case *Enum:
+			for i := 0; i < typ.NumVariants(); i++ {
+				v := typ.Variant(i)
+				for j := 0; j < v.NumFields(); j++ {
+					do(v.Field(j).Type())
+				}
+			}
 		}
 	}
 	do(targ)

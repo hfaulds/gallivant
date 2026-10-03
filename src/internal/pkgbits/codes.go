@@ -56,6 +56,7 @@ const (
 	TypeInterface
 	TypeUnion
 	TypeTypeParam
+	TypeEnum // Gallivant: enum { Variant; Variant(fields...) }
 )
 
 // A CodeObj distinguishes among go/types.Object encodings.
