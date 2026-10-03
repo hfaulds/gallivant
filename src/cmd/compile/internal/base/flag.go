@@ -111,6 +111,7 @@ type CmdFlags struct {
 	LinkShared         *bool        "help:\"generate code that will be linked against Go shared libraries\"" // &Ctxt.Flag_linkshared, set below
 	Live               CountFlag    "help:\"debug liveness analysis\""
 	MSan               bool         "help:\"build code compatible with C/C++ memory sanitizer\""
+	CheckCaps          bool         "help:\"enforce import capability grants (the package is in a main module)\""
 	ModPath            string       "help:\"module `path` of the package being compiled (for import capability checks)\""
 	NoNil              bool         "help:\"reject uses of nil (the package's module has a nonil directive)\""
 	MemProfile         string       "help:\"write memory profile to `file`\""

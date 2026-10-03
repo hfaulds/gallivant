@@ -79,16 +79,21 @@ in P's export data. When compiling P, each import spec of a package from a
 *different module* is compared against its `with [...]` grant. Missing
 capabilities are compile errors.
 
-The trust boundary is the module edge:
+The trust boundary is the module edge, and only your own code is checked:
 
+- Only packages of main modules (the module you are building, or every
+  module of a workspace) are checked. A dependency's imports of other
+  modules are not: its capabilities, and those of everything it imports,
+  are charged to the grant on your import of it. Ordinary Go modules
+  therefore work as dependencies without knowing about grants.
 - Standard library imports are never checked.
 - Imports of packages in the same module as P are never checked.
 - Your own code's direct use of the standard library is unconstrained.
 
 `cmd/go` passes the module path of the package being compiled to the compiler
-with the new `-modpath` flag. Packages compiled without one (GOPATH mode,
-ad-hoc files) are treated as their own module, so every third-party import is
-checked.
+with the new `-modpath` flag, and `-checkcaps` for packages of main modules.
+Packages compiled without a module path (GOPATH mode, ad-hoc files) are
+treated as their own module, so every third-party import is checked.
 
 ## Differences from gocaps
 

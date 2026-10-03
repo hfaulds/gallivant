@@ -24,8 +24,8 @@ import (
 // symbols it names, unions in the effective capabilities recorded in the
 // export data of every non-standard-library import, stores the result in
 // caps.Local so that it is written to this package's export data, and
-// finally reports every import of a package from another module whose
-// "with [...]" grant does not cover that package's effective capabilities.
+// finally, if -checkcaps is set, reports every import of a package from
+// another module whose "with [...]" grant does not cover that package's effective capabilities.
 func checkCaps(m posMap, noders []*noder, pkg *types2.Package, info *types2.Info) {
 	if base.Flag.Std {
 		// Standard-library packages are never checked and never contribute
@@ -146,7 +146,13 @@ func checkCaps(m posMap, noders []*noder, pkg *types2.Package, info *types2.Info
 		Chain:      chain,
 	}
 
-	// Check grants at every module-crossing import.
+	// Check grants at every module-crossing import. Only packages of main
+	// modules are checked; a dependency's capabilities are charged to
+	// the main module's grant on whichever import reaches it.
+	if !base.Flag.CheckCaps {
+		base.ExitIfErrors()
+		return
+	}
 	for _, path := range order {
 		site := sites[path]
 		if caps.IsStdlib(site.resolved) {
