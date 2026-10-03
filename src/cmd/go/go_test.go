@@ -2354,7 +2354,7 @@ func TestTestVetRebuild(t *testing.T) {
 		type I interface {M() T}
 	`)
 	tg.tempFile("src/b/export_test.go", `package b
-		func (*T) Method() *T { return nil }
+		func (*T) Method() *T { return new(T) }
 	`)
 	tg.tempFile("src/b/b_test.go", `package b_test
 		import (

@@ -187,7 +187,7 @@ func TestCover(t *testing.T) {
 	}
 
 	// go run ./testdata/main.go ./testdata/test.go
-	cmd = testenv.Command(t, testenv.GoToolPath(t), "run", tmpTestMain, coverOutput)
+	cmd = testenv.Command(t, testenv.GoToolPath(t), "run", "-gcflags=-nonil=false", tmpTestMain, coverOutput)
 	run(cmd, t)
 
 	file, err = os.ReadFile(coverOutput)

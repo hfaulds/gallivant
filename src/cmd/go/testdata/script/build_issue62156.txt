@@ -8,6 +8,7 @@ go build
 module m
 
 go 1.20
+nonil false
 -- main.go --
 package main
 

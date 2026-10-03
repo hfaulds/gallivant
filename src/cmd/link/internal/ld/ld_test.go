@@ -404,7 +404,7 @@ func main() {
 			if err := os.WriteFile(src, []byte(tt.prog), 0644); err != nil {
 				t.Fatal(err)
 			}
-			cmd := testenv.Command(t, testenv.GoToolPath(t), "run", src)
+			cmd := testenv.Command(t, testenv.GoToolPath(t), "run", "-gcflags=-nonil=false", src)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatal(err)

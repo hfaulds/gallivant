@@ -19,7 +19,7 @@ stdout '^hello cgo\r?\n'
 
 go list -compiled -overlay overlay.json -f '{{range .CompiledGoFiles}}{{. | printf "%s\n"}}{{end}}' ./cgo_hello_replace
 cp stdout compiled_cgo_sources.txt
-go run ../print_line_comments.go compiled_cgo_sources.txt
+go run -gcflags=-nonil=false ../print_line_comments.go compiled_cgo_sources.txt
 stdout $GOPATH[/\\]src[/\\]m[/\\]cgo_hello_replace[/\\]cgo_hello_replace.go
 ! stdout $GOPATH[/\\]src[/\\]m[/\\]overlay[/\\]hello.c
 
@@ -28,6 +28,7 @@ stdout $GOPATH[/\\]src[/\\]m[/\\]cgo_hello_replace[/\\]cgo_hello_replace.go
 module m
 
 go 1.16
+nonil false
 
 -- m/overlay.json --
 {

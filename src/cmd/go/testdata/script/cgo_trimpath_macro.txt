@@ -15,13 +15,14 @@ stdout '(\\_\\_|/_)[\\/]vendor[\\/]v.com[\\/]c[\\/]bar.h'
 
 # Test in GOPATH mode.
 env GO111MODULE=off
-go run -trimpath ./main
+go run -trimpath -gcflags=-nonil=false ./main
 stdout '(\\_\\_|/_)[\\/]GOPATH[\\/]src[\\/]c[\\/]bar.h'
 
 -- go.mod --
 module m
 
 require v.com v1.0.0
+nonil false
 -- go.sum --
 v.com v1.0.0 h1:xxx
 v.com v1.0.0/go.mod h1:xxx

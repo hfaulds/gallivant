@@ -112,7 +112,7 @@ type CmdFlags struct {
 	Live               CountFlag    "help:\"debug liveness analysis\""
 	MSan               bool         "help:\"build code compatible with C/C++ memory sanitizer\""
 	ModPath            string       "help:\"module `path` of the package being compiled (for import capability checks)\""
-	NoNil              bool         "help:\"reject uses of nil (the package's module has a nonil directive)\""
+	NoNil              bool         "help:\"reject uses of nil (set by cmd/go unless the module opts out with nonil false)\""
 	MemProfile         string       "help:\"write memory profile to `file`\""
 	MemProfileRate     int          "help:\"set runtime.MemProfileRate to `rate`\""
 	MutexProfile       string       "help:\"write mutex profile to `file`\""

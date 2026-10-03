@@ -6,7 +6,7 @@
 
 [short] skip 'runs go build'
 
-go build -o roe$GOEXE ./remove_output_entries.go
+go build -gcflags=-nonil=false -o roe$GOEXE ./remove_output_entries.go
 
 # populate new cache
 env GOCACHE=$WORK/newcache

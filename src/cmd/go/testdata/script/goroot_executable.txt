@@ -8,7 +8,7 @@ mkdir $WORK/new/bin
 # options it may have been built with, such as -trimpath or not.
 # Instead, we build a fresh copy of the binary with known settings.
 go build -o $WORK/new/bin/go$GOEXE cmd/go &
-go build -trimpath -o $WORK/bin/check$GOEXE check.go &
+go build -trimpath -gcflags=-nonil=false -o $WORK/bin/check$GOEXE check.go &
 wait
 
 env TESTGOROOT=$GOROOT
@@ -38,7 +38,7 @@ rm $WORK/new/pkg
 # new tree when they call runtime.GOROOT.
 symlink $WORK/new/src -> $TESTGOROOT/src
 symlink $WORK/new/pkg -> $TESTGOROOT/pkg
-exec $WORK/new/bin/go$GOEXE run check_runtime_goroot.go $WORK/new
+exec $WORK/new/bin/go$GOEXE run -gcflags=-nonil=false check_runtime_goroot.go $WORK/new
 
 -- check.go --
 package main

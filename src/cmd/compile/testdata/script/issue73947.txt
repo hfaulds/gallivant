@@ -1,4 +1,4 @@
-go build main.go
+go build -gcflags=-nonil=false main.go
 ! stdout .
 ! stderr .
 

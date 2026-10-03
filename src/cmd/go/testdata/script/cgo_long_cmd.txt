@@ -15,6 +15,7 @@ go build
 module cgolongcmd
 
 go 1.22
+nonil false
 -- generate.go --
 //go:build ignore
 

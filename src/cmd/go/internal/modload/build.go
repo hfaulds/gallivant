@@ -21,6 +21,7 @@ import (
 	"cmd/go/internal/modindex"
 	"cmd/go/internal/modinfo"
 	"cmd/go/internal/search"
+	"cmd/go/internal/str"
 
 	"golang.org/x/mod/module"
 )
@@ -298,6 +299,40 @@ func addDeprecation(ld *Loader, ctx context.Context, m *modinfo.ModulePublic) {
 	m.Deprecated = deprecation
 }
 
+// mainModuleNoNil reports whether the packages of main module m are
+// compiled with -nonil (Gallivant). They are unless m's go.mod says
+// "nonil false". The std and cmd modules never are, nor is a module run
+// from the module cache by 'go run/install pkg@version', which is a
+// dependency in all but name.
+func mainModuleNoNil(ld *Loader, m module.Version) bool {
+	if f := ld.MainModules.ModFile(m); f != nil && f.NoNil != nil && !f.NoNil.Value {
+		return false
+	}
+	if ld.MainModules.InGorootSrc(m) {
+		return false
+	}
+	modRoot := ld.MainModules.ModRoot(m)
+	return modRoot == "" || cfg.GOMODCACHE == "" || !str.HasFilePathPrefix(modRoot, cfg.GOMODCACHE)
+}
+
+// MainModuleNoNilForDir reports whether files in dir that are named on
+// the command line are compiled with -nonil, following the main module
+// whose directory tree contains dir. ok is false if no main module does.
+func MainModuleNoNilForDir(ld *Loader, dir string) (nonil, ok bool) {
+	var best module.Version
+	bestRoot := ""
+	for _, m := range ld.MainModules.Versions() {
+		root := ld.MainModules.ModRoot(m)
+		if root != "" && str.HasFilePathPrefix(dir, root) && len(root) > len(bestRoot) {
+			best, bestRoot = m, root
+		}
+	}
+	if bestRoot == "" {
+		return false, false
+	}
+	return mainModuleNoNil(ld, best), true
+}
+
 // moduleInfo returns information about module m, loaded from the requirements
 // in rs (which may be nil to indicate that m was not loaded from a requirement
 // graph).
@@ -317,9 +352,7 @@ func moduleInfo(ld *Loader, ctx context.Context, rs *Requirements, m module.Vers
 			info.Dir = modRoot
 			info.GoMod = modFilePath(modRoot)
 		}
-		if f := ld.MainModules.ModFile(m); f != nil && f.NoNil != nil {
-			info.NoNil = true
-		}
+		info.NoNil = mainModuleNoNil(ld, m)
 		return info
 	}
 

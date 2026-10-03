@@ -225,6 +225,7 @@ type PackageInternal struct {
 	RawImports        []string            // this package's original imports as they appear in the text of the program; 1:1 with the end of PackagePublic.Imports
 	ForceLibrary      bool                // this package is a library (even if named "main")
 	CmdlineFiles      bool                // package built from files listed on command line
+	NoNil             bool                // Gallivant: compile with -nonil (see noNil)
 	CmdlinePkg        bool                // package listed on command line
 	CmdlinePkgLiteral bool                // package listed as literal on command line (not via wildcard)
 	Local             bool                // imported via local path (./ or ../)
@@ -2019,6 +2020,7 @@ func (p *Package) load(ld *modload.Loader, ctx context.Context, opts PackageOpts
 	if cfg.ModulesEnabled {
 		p.Module = modload.PackageModuleInfo(ld, ctx, pkgPath)
 	}
+	p.Internal.NoNil = noNil(ld, p)
 	p.DefaultGODEBUG = defaultGODEBUG(ld, p, nil, nil, nil)
 
 	if !opts.SuppressEmbedFiles {

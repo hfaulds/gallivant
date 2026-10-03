@@ -85,6 +85,7 @@ stderr 'multiple packages'
 module m
 
 go 1.16
+nonil false
 -- x.go --
 package main
 

@@ -99,7 +99,7 @@ func TestGoDefs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testgodefs\ngo 1.14\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module testgodefs\ngo 1.14\nnonil false\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -103,6 +103,7 @@ func TestMumble(t *testing.T) {
 module M
 
 go 1.21
+nonil false
 -- it/it.go --
 package it
 

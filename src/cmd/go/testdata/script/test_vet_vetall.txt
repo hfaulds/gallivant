@@ -20,6 +20,7 @@ stdout 'm/vetall.*\[no tests to run\]'
 module m
 
 go 1.16
+nonil false
 -- vetall/p.go --
 package p
 

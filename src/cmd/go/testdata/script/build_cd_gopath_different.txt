@@ -1,6 +1,6 @@
 [compiler:gccgo] skip 'gccgo does not support -ldflags -X'
 env GO111MODULE=off
-go build run_go.go
+go build -gcflags=-nonil=false run_go.go
 
 # Apply identity function to GOPATH
 exec ./run_go$GOEXE $GOPATH/src/my.pkg/main $GOPATH IDENTITY build -o $WORK/tmp/a.exe -ldflags -X=my.pkg.Text=linkXworked

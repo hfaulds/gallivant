@@ -16,6 +16,7 @@ go generate .
 module example
 
 go 1.19
+nonil false
 -- main.go --
 //go:generate go run .
 

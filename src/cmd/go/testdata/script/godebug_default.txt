@@ -117,6 +117,7 @@ module m
 require q v1.0.0
 replace q => ./q
 require rsc.io/panicnil v1.0.0
+nonil false
 
 -- go.mod.20 --
 go 1.20
@@ -124,6 +125,7 @@ module m
 require q v1.0.0
 replace q => ./q
 require rsc.io/panicnil v1.0.0
+nonil false
 
 -- p.go --
 //go:debug randautoseed=0
@@ -150,6 +152,7 @@ package main
 -- q/go.mod --
 go 1.20
 module q
+nonil false
 
 -- q/q.go --
 package main

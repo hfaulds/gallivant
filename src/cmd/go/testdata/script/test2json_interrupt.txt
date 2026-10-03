@@ -15,6 +15,7 @@ stdout -count=1 '"Action":"pass","Package":"example","Elapsed":'
 -- go.mod --
 module example
 go 1.20
+nonil false
 -- example_test.go --
 package example_test
 

@@ -23,6 +23,7 @@ exec $GOBIN/sametime cgotime_before.txt cgotime_after.txt
 module m
 
 go 1.16
+nonil false
 -- mtime/mtime.go --
 package main
 

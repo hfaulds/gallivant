@@ -50,6 +50,7 @@ stderr '# runtime/cgo\nGO_BREAK_CLANG is set'
 -- go.mod --
 module example/issue64589
 go 1.20
+nonil false
 -- which/main.go --
 package main
 

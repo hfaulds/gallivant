@@ -54,14 +54,16 @@ import (
 )
 ```
 
-**`nonil` modules** ([design](doc/gallivant/nonil.md)).
-A `nonil` line in go.mod makes `nil` a compile error in that module's code.
+**No `nil`** ([design](doc/gallivant/nonil.md)).
+`nil` is a compile error in your code. Existing Go code can opt out with a
+`nonil false` line in its go.mod. The standard library and your dependencies
+always compile with `nil` allowed.
 
 ```
-module example.com/app
+module example.com/legacy
 
 go 1.27
-nonil
+nonil false
 ```
 
 ## Building
@@ -91,8 +93,9 @@ The build cache is keyed on the version string, which does not change, so run
 
 ## Using it in a project
 
-Write a go.mod with `go 1.27`, and optionally `nonil`. Then build and test
-with Gallivant's `go` exactly as you would with Go:
+Write a go.mod with `go 1.27`. Add `nonil false` if the module is existing Go
+code that uses `nil`. Then build and test with Gallivant's `go` exactly as you
+would with Go:
 
 ```sh
 go build ./...
@@ -107,7 +110,7 @@ the same small updates this fork made to its vendored copy.
 
 Done: enum types and `match` (compiler, `gofmt`, `go vet`), `Option` and
 `Result` with the `option` and `result` packages, import capabilities, and
-`nonil` modules.
+no `nil` by default.
 
 Not done: enums have no `reflect.Kind` of their own, so `fmt` prints the
 lowered struct unless you define a `String` method; a `go vet` check nudging

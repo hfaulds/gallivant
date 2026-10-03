@@ -76,7 +76,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		cmd := exec.Command("go", "run", tmpFile)
+		cmd := exec.Command("go", "run", "-gcflags=-nonil=false", tmpFile)
 		var buf bytes.Buffer
 		cmd.Stdout = &buf
 		cmd.Stderr = &buf

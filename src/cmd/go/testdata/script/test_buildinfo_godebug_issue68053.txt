@@ -11,6 +11,7 @@ stdout 'build\tDefaultGODEBUG=.*panicnil=1.*'
 module example.com/foo
 
 go 1.23
+nonil false
 -- main_test.go --
 //go:debug panicnil=1
 package main_test
