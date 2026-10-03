@@ -497,7 +497,17 @@ func (p *parser) parseExprList() (list []ast.Expr) {
 		defer un(trace(p, "ExpressionList"))
 	}
 
-	list = append(list, p.parseExpr())
+	return p.parseExprListFrom(nil)
+}
+
+// parseExprListFrom completes an expression list whose first expression
+// x0 has already been parsed; if x0 is nil, the first expression is parsed
+// as well.
+func (p *parser) parseExprListFrom(x0 ast.Expr) (list []ast.Expr) {
+	if x0 == nil {
+		x0 = p.parseExpr()
+	}
+	list = append(list, x0)
 	for p.tok == token.COMMA {
 		p.next()
 		list = append(list, p.parseExpr())
@@ -733,6 +743,74 @@ func (p *parser) parseFieldDecl() *ast.Field {
 
 	field := &ast.Field{Doc: doc, Names: names, Type: typ, Tag: tag, Comment: comment}
 	return field
+}
+
+// parseDeclType parses the type of a type declaration. In addition to the
+// types accepted by parseType it accepts an enum type (Gallivant), which may
+// only appear in this position. "enum" is a contextual keyword: it is only
+// treated as one when it is immediately followed by "{", so a type named
+// enum keeps working.
+func (p *parser) parseDeclType() ast.Expr {
+	if p.trace {
+		defer un(trace(p, "DeclType"))
+	}
+
+	if p.tok == token.IDENT && p.lit == "enum" {
+		ident := p.parseIdent()
+		if p.tok == token.LBRACE {
+			return p.parseEnumType(ident.Pos())
+		}
+		// enum is an ordinary type name here
+		typ := p.parseTypeName(ident)
+		if p.tok == token.LBRACK {
+			typ = p.parseTypeInstance(typ)
+		}
+		return typ
+	}
+	return p.parseType()
+}
+
+// EnumType    = "enum" "{" { VariantDecl ";" } "}" .
+// VariantDecl = identifier [ "(" [ ParameterList ] ")" ] .
+//
+// The "enum" identifier has already been consumed; pos is its position.
+func (p *parser) parseEnumType(pos token.Pos) *ast.EnumType {
+	if p.trace {
+		defer un(trace(p, "EnumType"))
+	}
+
+	lbrace := p.expect(token.LBRACE)
+	var list []*ast.Variant
+	for p.tok == token.IDENT {
+		list = append(list, p.parseVariantDecl())
+	}
+	rbrace := p.expect(token.RBRACE)
+
+	return &ast.EnumType{Enum: pos, Lbrace: lbrace, Variants: list, Rbrace: rbrace}
+}
+
+func (p *parser) parseVariantDecl() *ast.Variant {
+	if p.trace {
+		defer un(trace(p, "VariantDecl"))
+	}
+
+	doc := p.leadComment
+	name := p.parseIdent()
+
+	var params *ast.FieldList
+	if p.tok == token.LPAREN {
+		lparen := p.expect(token.LPAREN)
+		var fields []*ast.Field
+		if p.tok != token.RPAREN {
+			fields = p.parseParameterList(nil, nil, token.RPAREN, false)
+		}
+		rparen := p.expect(token.RPAREN)
+		params = &ast.FieldList{Opening: lparen, List: fields, Closing: rparen}
+	}
+
+	comment := p.expectSemi()
+
+	return &ast.Variant{Doc: doc, Name: name, Params: params, Comment: comment}
 }
 
 func (p *parser) parseStructType() *ast.StructType {
