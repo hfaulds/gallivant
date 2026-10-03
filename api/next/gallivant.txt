@@ -1,0 +1,64 @@
+pkg go/ast, method (*EnumType) End() token.Pos
+pkg go/ast, method (*EnumType) Pos() token.Pos
+pkg go/ast, method (*MatchStmt) End() token.Pos
+pkg go/ast, method (*MatchStmt) Pos() token.Pos
+pkg go/ast, method (*Variant) End() token.Pos
+pkg go/ast, method (*Variant) Pos() token.Pos
+pkg go/ast, type EnumType struct
+pkg go/ast, type EnumType struct, Enum token.Pos
+pkg go/ast, type EnumType struct, Incomplete bool
+pkg go/ast, type EnumType struct, Lbrace token.Pos
+pkg go/ast, type EnumType struct, Rbrace token.Pos
+pkg go/ast, type EnumType struct, Variants []*Variant
+pkg go/ast, type MatchStmt struct
+pkg go/ast, type MatchStmt struct, Body *BlockStmt
+pkg go/ast, type MatchStmt struct, Init Stmt
+pkg go/ast, type MatchStmt struct, Match token.Pos
+pkg go/ast, type MatchStmt struct, Tag Expr
+pkg go/ast, type Variant struct
+pkg go/ast, type Variant struct, Comment *CommentGroup
+pkg go/ast, type Variant struct, Doc *CommentGroup
+pkg go/ast, type Variant struct, Name *Ident
+pkg go/ast, type Variant struct, Params *FieldList
+pkg go/types, const UntypedErr = 27
+pkg go/types, const UntypedErr BasicKind
+pkg go/types, const UntypedNone = 26
+pkg go/types, const UntypedNone BasicKind
+pkg go/types, func NewEnum([]*Variant, Type) *Enum
+pkg go/types, func NewVariant(token.Pos, *Package, string, int, []*Var, bool) *Variant
+pkg go/types, method (*Enum) NumVariants() int
+pkg go/types, method (*Enum) String() string
+pkg go/types, method (*Enum) Underlying() Type
+pkg go/types, method (*Enum) Variant(int) *Variant
+pkg go/types, method (*Enum) VariantByName(string) *Variant
+pkg go/types, method (*Variant) Exported() bool
+pkg go/types, method (*Variant) Field(int) *Var
+pkg go/types, method (*Variant) HasPayload() bool
+pkg go/types, method (*Variant) Id() string
+pkg go/types, method (*Variant) Index() int
+pkg go/types, method (*Variant) Name() string
+pkg go/types, method (*Variant) NumFields() int
+pkg go/types, method (*Variant) Parent() *Scope
+pkg go/types, method (*Variant) Pkg() *Package
+pkg go/types, method (*Variant) Pos() token.Pos
+pkg go/types, method (*Variant) String() string
+pkg go/types, method (*Variant) Type() Type
+pkg go/types, type Config struct, NoNil bool
+pkg go/types, type Enum struct
+pkg go/types, type Variant struct
+pkg option, func FromOK[$0 interface{}]($0, bool) Option[$0]
+pkg option, func FromPtr[$0 interface{}](*$0) Option[$0]
+pkg option, func IsNone[$0 interface{}](Option[$0]) bool
+pkg option, func IsSome[$0 interface{}](Option[$0]) bool
+pkg option, func Map[$0 interface{}, $1 interface{}](Option[$0], func($0) $1) Option[$1]
+pkg option, func Must[$0 interface{}](Option[$0]) $0
+pkg option, func Or[$0 interface{}](Option[$0], $0) $0
+pkg option, func OrZero[$0 interface{}](Option[$0]) $0
+pkg result, func IsOk[$0 interface{}](Result[$0]) bool
+pkg result, func Map[$0 interface{}, $1 interface{}](Result[$0], func($0) $1) Result[$1]
+pkg result, func Must[$0 interface{}](Result[$0]) $0
+pkg result, func Or[$0 interface{}](Result[$0], $0) $0
+pkg result, func Then[$0 interface{}, $1 interface{}](Result[$0], func($0) Result[$1]) Result[$1]
+pkg result, func ToOption[$0 interface{}](Result[$0]) Option[$0]
+pkg result, func Unwrap[$0 interface{}](Result[$0]) ($0, error)
+pkg result, func Wrap[$0 interface{}]($0, error) Result[$0]
