@@ -418,7 +418,7 @@ func typecheckFiles(path string, filenames []string, importer Importer) (*Packag
 	// All Objects have a package, except predeclared ones.
 	errorError := Universe.Lookup("error").Type().Underlying().(*Interface).ExplicitMethod(0) // (error).Error
 	for id, obj := range info.Uses {
-		predeclared := obj == Universe.Lookup(obj.Name()) || obj == errorError
+		predeclared := obj == Universe.Lookup(obj.Name()) || obj == errorError || isPredeclaredVariant(obj)
 		if predeclared == (obj.Pkg() != nil) {
 			posn := id.Pos()
 			if predeclared {
@@ -430,6 +430,18 @@ func typecheckFiles(path string, filenames []string, importer Importer) (*Packag
 	}
 
 	return pkg, nil
+}
+
+// isPredeclaredVariant reports whether obj is a variant of a predeclared
+// enum (Option or Result, or an instance of one). Like the Error method of
+// error, such variants belong to a predeclared type and have no package.
+func isPredeclaredVariant(obj Object) bool {
+	v, _ := obj.(*Variant)
+	if v == nil {
+		return false
+	}
+	n, _ := v.Type().(*Named)
+	return n != nil && n.Obj().Pkg() == nil && n.Obj() == Universe.Lookup(n.Obj().Name())
 }
 
 // pkgFilenames returns the list of package filenames for the given directory.
