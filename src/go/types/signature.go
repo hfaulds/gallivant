@@ -19,6 +19,7 @@ import (
 // A Signature represents a (non-builtin) function or method type.
 // The receiver is ignored when comparing signatures for identity.
 type Signature struct {
+	variantCtor *Variant // non-nil for the signature of an enum variant constructor
 	// We need to keep the scope in Signature (rather than passing it around
 	// and store it in the Func Object) because when type-checking a function
 	// literal we call the general type checker which returns a general Type.

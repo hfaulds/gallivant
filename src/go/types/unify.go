@@ -610,6 +610,26 @@ func (u *unifier) nify(x, y Type, mode unifyMode, p *ifacePair) (result bool) {
 			return u.nify(x.elem, y.elem, emode, p)
 		}
 
+	case *Enum:
+		// Two enum types unify if they have the same variants and the
+		// corresponding payload field types unify.
+		if y, ok := y.(*Enum); ok {
+			if len(x.variants) == len(y.variants) {
+				for i, v := range x.variants {
+					w := y.variants[i]
+					if v.name != w.name || v.hasParens != w.hasParens || len(v.fields) != len(w.fields) {
+						return false
+					}
+					for j, f := range v.fields {
+						if !u.nify(f.typ, w.fields[j].typ, emode, p) {
+							return false
+						}
+					}
+				}
+				return true
+			}
+		}
+
 	case *Struct:
 		// Two struct types unify if they have the same sequence of fields,
 		// and if corresponding fields have the same names, their (field) types unify,

@@ -20,7 +20,7 @@ import (
 // reports whether the call is valid, with *x holding the result;
 // but x.expr is not set. If the call is invalid, the result is
 // false, and *x is undefined.
-func (check *Checker) builtin(x *operand, call *ast.CallExpr, id builtinId) (_ bool) {
+func (check *Checker) builtin(T *target, x *operand, call *ast.CallExpr, id builtinId) (_ bool) {
 	argList := call.Args
 
 	// append is the only built-in that permits the use of ... for the last argument
@@ -581,6 +581,55 @@ func (check *Checker) builtin(x *operand, call *ast.CallExpr, id builtinId) (_ b
 			check.recordBuiltinType(call.Fun, makeSig(x.typ(), types...))
 		}
 
+	case _Some, _Ok:
+		// Some(x) Option[T]
+		// Ok(x) Result[T]
+		// T is taken from the assignment target if it is an Option (Result)
+		// type; otherwise it is the (default) type of x.
+		generic := universeOption
+		if id == _Ok {
+			generic = universeResult
+		}
+		var payload, result Type
+		if T != nil && T.typ != nil && predeclaredEnumInstance(T.typ, generic) {
+			result = T.typ
+			payload = asNamed(T.typ).TypeArgs().At(0)
+			check.assignment(x, payload, "argument to "+bin.name)
+			if !x.isValid() {
+				return
+			}
+		} else {
+			check.assignment(x, nil, "argument to "+bin.name)
+			if !x.isValid() {
+				return
+			}
+			payload = x.typ()
+			result = check.instance(call.Pos(), generic.typ.(*Named), []Type{payload}, nil, check.context())
+		}
+		x.mode_ = value
+		x.typ_ = result
+		if check.recordTypes() {
+			check.recordBuiltinType(call.Fun, makeSig(result, payload))
+		}
+
+	case _Err:
+		// Err(e) Result[T]
+		// Without an assignment target of Result type the value is untyped,
+		// like nil, and takes its type from a later assignment or comparison.
+		check.assignment(x, universeError, "argument to Err")
+		if !x.isValid() {
+			return
+		}
+		x.mode_ = value
+		if T != nil && T.typ != nil && predeclaredEnumInstance(T.typ, universeResult) {
+			x.typ_ = T.typ
+			if check.recordTypes() {
+				check.recordBuiltinType(call.Fun, makeSig(T.typ, universeError))
+			}
+		} else {
+			x.typ_ = Typ[UntypedErr]
+		}
+
 	case _Max, _Min:
 		// max(x, ...)
 		// min(x, ...)
@@ -1065,6 +1114,15 @@ func (check *Checker) hasVarSize(t Type) bool {
 		for _, f := range t.fields {
 			if check.hasVarSize(f.typ) {
 				return true
+			}
+		}
+
+	case *Enum:
+		for _, v := range t.variants {
+			for _, f := range v.fields {
+				if check.hasVarSize(f.typ) {
+					return true
+				}
 			}
 		}
 

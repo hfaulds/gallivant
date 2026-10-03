@@ -643,6 +643,57 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 	p.print(token.RBRACE)
 }
 
+// variantList prints the variant block of an enum type (Gallivant): an empty
+// enum prints as enum{}; otherwise each variant is printed on its own line.
+func (p *printer) variantList(x *ast.EnumType) {
+	lbrace := x.Lbrace
+	list := x.Variants
+	rbrace := x.Rbrace
+	hasComments := x.Incomplete || p.commentBefore(p.posFor(rbrace))
+	srcIsOneLine := lbrace.IsValid() && rbrace.IsValid() && p.lineFor(lbrace) == p.lineFor(rbrace)
+
+	if !hasComments && srcIsOneLine && len(list) == 0 {
+		// no blank between keyword and {} in this case
+		p.setPos(lbrace)
+		p.print(token.LBRACE)
+		p.setPos(rbrace)
+		p.print(token.RBRACE)
+		return
+	}
+
+	p.print(blank)
+	p.setPos(lbrace)
+	p.print(token.LBRACE, indent)
+	if hasComments || len(list) > 0 {
+		p.print(formfeed)
+	}
+
+	var line int
+	for i, v := range list {
+		if i > 0 {
+			p.linebreak(p.lineFor(v.Pos()), 1, ignore, p.linesFrom(line) > 0)
+		}
+		p.setComment(v.Doc)
+		p.recordLine(&line)
+		p.expr(v.Name)
+		if v.Params != nil {
+			p.parameters(v.Params, funcParam)
+		}
+		p.setComment(v.Comment)
+	}
+	if x.Incomplete {
+		if len(list) > 0 {
+			p.print(formfeed)
+		}
+		p.flush(p.posFor(rbrace), token.RBRACE) // make sure we don't lose the last line comment
+		p.setLineComment("// contains filtered or unexported variants")
+	}
+
+	p.print(unindent, formfeed)
+	p.setPos(rbrace)
+	p.print(token.RBRACE)
+}
+
 // ----------------------------------------------------------------------------
 // Expressions
 
@@ -1057,6 +1108,10 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 	case *ast.InterfaceType:
 		p.print(token.INTERFACE)
 		p.fieldList(x.Methods, false, x.Incomplete)
+
+	case *ast.EnumType:
+		p.print(&ast.Ident{NamePos: x.Enum, Name: "enum"})
+		p.variantList(x)
 
 	case *ast.MapType:
 		p.print(token.MAP, token.LBRACK)
@@ -1493,6 +1548,11 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 
 	case *ast.SwitchStmt:
 		p.print(token.SWITCH)
+		p.controlClause(false, s.Init, s.Tag, nil)
+		p.block(s.Body, 0)
+
+	case *ast.MatchStmt:
+		p.print(&ast.Ident{NamePos: s.Match, Name: "match"})
 		p.controlClause(false, s.Init, s.Tag, nil)
 		p.block(s.Body, 0)
 

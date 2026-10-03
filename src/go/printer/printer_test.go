@@ -181,6 +181,7 @@ var data = []entry{
 	{"declarations.input", "declarations.golden", 0},
 	{"statements.input", "statements.golden", 0},
 	{"slow.input", "slow.golden", idempotent},
+	{"gallivant.input", "gallivant.golden", idempotent},
 	{"complit.input", "complit.x", export},
 	{"go2numbers.input", "go2numbers.golden", idempotent},
 	{"go2numbers.input", "go2numbers.norm", normNumber | idempotent},

@@ -408,6 +408,18 @@ func childrenOf(n ast.Node) []ast.Node {
 		children = append(children,
 			tok(n.Interface, len("interface")))
 
+	case *ast.EnumType:
+		children = append(children,
+			tok(n.Enum, len("enum")),
+			tok(n.Lbrace, len("{")),
+			tok(n.Rbrace, len("}")))
+
+	case *ast.Variant:
+		// TODO(adonovan): Variant.{Doc,Comment}?
+
+	case *ast.MatchStmt:
+		children = append(children, tok(n.Match, len("match")))
+
 	case *ast.KeyValueExpr:
 		children = append(children,
 			tok(n.Colon, len(":")))
@@ -614,6 +626,12 @@ func NodeDescription(n ast.Node) string {
 		return "index list expression"
 	case *ast.InterfaceType:
 		return "interface type"
+	case *ast.EnumType:
+		return "enum type"
+	case *ast.Variant:
+		return "enum variant"
+	case *ast.MatchStmt:
+		return "match statement"
 	case *ast.KeyValueExpr:
 		return "key/value association"
 	case *ast.LabeledStmt:

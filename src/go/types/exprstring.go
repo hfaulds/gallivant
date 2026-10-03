@@ -146,6 +146,21 @@ func WriteExpr(buf *bytes.Buffer, x ast.Expr) {
 		writeFieldList(buf, x.Methods.List, "; ", true)
 		buf.WriteByte('}')
 
+	case *ast.EnumType:
+		buf.WriteString("enum{")
+		for i, v := range x.Variants {
+			if i > 0 {
+				buf.WriteString("; ")
+			}
+			buf.WriteString(v.Name.Name)
+			if v.Params != nil {
+				buf.WriteByte('(')
+				writeFieldList(buf, v.Params.List, ", ", false)
+				buf.WriteByte(')')
+			}
+		}
+		buf.WriteByte('}')
+
 	case *ast.MapType:
 		buf.WriteString("map[")
 		WriteExpr(buf, x.Key)

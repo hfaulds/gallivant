@@ -304,6 +304,20 @@ func (r *resolver) Visit(node ast.Node) ast.Visitor {
 		defer r.closeScope()
 		r.walkFieldList(n.Methods, ast.Fun)
 
+	case *ast.EnumType:
+		// Variant names are declared in the enum's own scope (like struct
+		// fields); payload field names are declared in a scope per variant.
+		r.openScope(n.Pos())
+		defer r.closeScope()
+		for _, v := range n.Variants {
+			if v.Params != nil {
+				r.openScope(v.Pos())
+				r.walkFieldList(v.Params, ast.Var)
+				r.closeScope()
+			}
+			r.declare(v, nil, r.topScope, ast.Con, v.Name)
+		}
+
 	// Statements
 	case *ast.LabeledStmt:
 		r.declare(n, nil, r.labelScope, ast.Lbl, n.Label)
@@ -366,6 +380,38 @@ func (r *resolver) Visit(node ast.Node) ast.Visitor {
 		}
 		if n.Body != nil {
 			r.walkStmts(n.Body.List)
+		}
+
+	case *ast.MatchStmt:
+		r.openScope(n.Pos())
+		defer r.closeScope()
+		if n.Init != nil {
+			ast.Walk(r, n.Init)
+		}
+		ast.Walk(r, n.Tag)
+		// Case clauses hold patterns rather than expressions: variant names
+		// are looked up in the subject's enum type, not in scope, and the
+		// pattern arguments are new bindings declared in the clause scope.
+		if n.Body != nil {
+			for _, s := range n.Body.List {
+				cc, _ := s.(*ast.CaseClause)
+				if cc == nil {
+					ast.Walk(r, s)
+					continue
+				}
+				r.openScope(cc.Pos())
+				for _, pat := range cc.List {
+					if call, _ := ast.Unparen(pat).(*ast.CallExpr); call != nil {
+						for _, arg := range call.Args {
+							if id, _ := ast.Unparen(arg).(*ast.Ident); id != nil && id.Name != "_" {
+								r.declare(cc, nil, r.topScope, ast.Var, id)
+							}
+						}
+					}
+				}
+				r.walkStmts(cc.Body)
+				r.closeScope()
+			}
 		}
 
 	case *ast.TypeSwitchStmt:

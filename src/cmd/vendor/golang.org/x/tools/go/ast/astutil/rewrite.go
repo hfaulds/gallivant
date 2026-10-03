@@ -304,6 +304,15 @@ func (a *application) apply(parent ast.Node, name string, iter *iterator, n ast.
 	case *ast.InterfaceType:
 		a.apply(n, "Methods", nil, n.Methods)
 
+	case *ast.EnumType:
+		a.applyList(n, "Variants")
+
+	case *ast.Variant:
+		a.apply(n, "Doc", nil, n.Doc)
+		a.apply(n, "Name", nil, n.Name)
+		a.apply(n, "Params", nil, n.Params)
+		a.apply(n, "Comment", nil, n.Comment)
+
 	case *ast.MapType:
 		a.apply(n, "Key", nil, n.Key)
 		a.apply(n, "Value", nil, n.Value)
@@ -372,6 +381,11 @@ func (a *application) apply(parent ast.Node, name string, iter *iterator, n ast.
 	case *ast.TypeSwitchStmt:
 		a.apply(n, "Init", nil, n.Init)
 		a.apply(n, "Assign", nil, n.Assign)
+		a.apply(n, "Body", nil, n.Body)
+
+	case *ast.MatchStmt:
+		a.apply(n, "Init", nil, n.Init)
+		a.apply(n, "Tag", nil, n.Tag)
 		a.apply(n, "Body", nil, n.Body)
 
 	case *ast.CommClause:

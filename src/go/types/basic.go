@@ -41,6 +41,8 @@ const (
 	UntypedComplex
 	UntypedString
 	UntypedNil
+	UntypedNone // the predeclared value None
+	UntypedErr  // the value of an Err(e) call without type context
 
 	// aliases
 	Byte = Uint8

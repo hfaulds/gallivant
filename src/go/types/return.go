@@ -57,6 +57,17 @@ func (check *Checker) isTerminating(s ast.Stmt, label string) bool {
 	case *ast.TypeSwitchStmt:
 		return check.isTerminatingSwitch(s.Body, label)
 
+	case *ast.MatchStmt:
+		// A match is exhaustive (or has a default clause), so it is
+		// terminating if every case is.
+		for _, s := range s.Body.List {
+			cc, _ := s.(*ast.CaseClause)
+			if cc == nil || !check.isTerminatingList(cc.Body, "") || hasBreakList(cc.Body, label, true) {
+				return false
+			}
+		}
+		return true
+
 	case *ast.SelectStmt:
 		for _, s := range s.Body.List {
 			cc := s.(*ast.CommClause)
@@ -148,6 +159,11 @@ func hasBreak(s ast.Stmt, label string, implicit bool) bool {
 		}
 
 	case *ast.TypeSwitchStmt:
+		if label != "" && hasBreak(s.Body, label, false) {
+			return true
+		}
+
+	case *ast.MatchStmt:
 		if label != "" && hasBreak(s.Body, label, false) {
 			return true
 		}

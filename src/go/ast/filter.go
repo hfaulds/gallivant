@@ -137,6 +137,27 @@ func filterExprList(list []Expr, filter Filter, export bool) []Expr {
 	return list[0:j]
 }
 
+// filterVariantList removes the variants of an enum type whose names do
+// not pass the filter and filters the payload types of the remaining ones.
+// It reports whether any variant was removed.
+func filterVariantList(typ *EnumType, filter Filter, export bool) (removedVariants bool) {
+	j := 0
+	for _, v := range typ.Variants {
+		if filter(v.Name.Name) {
+			if export && v.Params != nil {
+				filterParamList(v.Params, filter, export)
+			}
+			typ.Variants[j] = v
+			j++
+		}
+	}
+	if j < len(typ.Variants) {
+		removedVariants = true
+	}
+	typ.Variants = typ.Variants[0:j]
+	return
+}
+
 func filterParamList(fields *FieldList, filter Filter, export bool) bool {
 	if fields == nil {
 		return false
@@ -172,6 +193,11 @@ func filterType(typ Expr, f Filter, export bool) bool {
 			t.Incomplete = true
 		}
 		return len(t.Methods.List) > 0
+	case *EnumType:
+		if filterVariantList(t, f, export) {
+			t.Incomplete = true
+		}
+		return len(t.Variants) > 0
 	case *MapType:
 		b1 := filterType(t.Key, f, export)
 		b2 := filterType(t.Value, f, export)

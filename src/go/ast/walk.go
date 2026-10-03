@@ -158,6 +158,23 @@ func Walk(v Visitor, node Node) {
 	case *InterfaceType:
 		Walk(v, n.Methods)
 
+	case *EnumType:
+		for _, variant := range n.Variants {
+			Walk(v, variant)
+		}
+
+	case *Variant:
+		if n.Doc != nil {
+			Walk(v, n.Doc)
+		}
+		Walk(v, n.Name)
+		if n.Params != nil {
+			Walk(v, n.Params)
+		}
+		if n.Comment != nil {
+			Walk(v, n.Comment)
+		}
+
 	case *MapType:
 		Walk(v, n.Key)
 		Walk(v, n.Value)
@@ -231,6 +248,13 @@ func Walk(v Visitor, node Node) {
 		if n.Tag != nil {
 			Walk(v, n.Tag)
 		}
+		Walk(v, n.Body)
+
+	case *MatchStmt:
+		if n.Init != nil {
+			Walk(v, n.Init)
+		}
+		Walk(v, n.Tag)
 		Walk(v, n.Body)
 
 	case *TypeSwitchStmt:

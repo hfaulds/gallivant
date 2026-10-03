@@ -148,6 +148,21 @@ func walk(v *visitor, ek edge.Kind, index int, node ast.Node) {
 	case *ast.InterfaceType:
 		walk(v, edge.InterfaceType_Methods, -1, n.Methods)
 
+	case *ast.EnumType:
+		walkList(v, edge.EnumType_Variants, n.Variants)
+
+	case *ast.Variant:
+		if n.Doc != nil {
+			walk(v, edge.Variant_Doc, -1, n.Doc)
+		}
+		walk(v, edge.Variant_Name, -1, n.Name)
+		if n.Params != nil {
+			walk(v, edge.Variant_Params, -1, n.Params)
+		}
+		if n.Comment != nil {
+			walk(v, edge.Variant_Comment, -1, n.Comment)
+		}
+
 	case *ast.MapType:
 		walk(v, edge.MapType_Key, -1, n.Key)
 		walk(v, edge.MapType_Value, -1, n.Value)
@@ -222,6 +237,13 @@ func walk(v *visitor, ek edge.Kind, index int, node ast.Node) {
 			walk(v, edge.SwitchStmt_Tag, -1, n.Tag)
 		}
 		walk(v, edge.SwitchStmt_Body, -1, n.Body)
+
+	case *ast.MatchStmt:
+		if n.Init != nil {
+			walk(v, edge.MatchStmt_Init, -1, n.Init)
+		}
+		walk(v, edge.MatchStmt_Tag, -1, n.Tag)
+		walk(v, edge.MatchStmt_Body, -1, n.Body)
 
 	case *ast.TypeSwitchStmt:
 		if n.Init != nil {

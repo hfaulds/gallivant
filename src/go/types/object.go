@@ -566,6 +566,33 @@ func writeObject(buf *bytes.Buffer, obj Object, qf Qualifier) {
 		buf.WriteString("nil")
 		return
 
+	case *Variant:
+		if obj == universeNone {
+			buf.WriteString("None")
+			return
+		}
+		buf.WriteString("variant ")
+		if typ != nil {
+			WriteType(buf, typ, qf)
+			buf.WriteByte('.')
+		}
+		buf.WriteString(obj.Name())
+		if obj.hasParens {
+			buf.WriteByte('(')
+			for i, f := range obj.fields {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				if f.name != "" {
+					buf.WriteString(f.name)
+					buf.WriteByte(' ')
+				}
+				WriteType(buf, f.typ, qf)
+			}
+			buf.WriteByte(')')
+		}
+		return
+
 	default:
 		panic(fmt.Sprintf("writeObject(%T)", obj))
 	}

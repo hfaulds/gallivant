@@ -145,6 +145,30 @@ func (w *typeWriter) typ(typ Type) {
 		w.string("[]")
 		w.typ(t.elem)
 
+	case *Enum:
+		w.string("enum{")
+		for i, v := range t.variants {
+			if i > 0 {
+				w.string("; ")
+			}
+			w.string(v.name)
+			if v.hasParens {
+				w.byte('(')
+				for j, f := range v.fields {
+					if j > 0 {
+						w.string(", ")
+					}
+					if f.name != "" {
+						w.string(f.name)
+						w.byte(' ')
+					}
+					w.typ(f.typ)
+				}
+				w.byte(')')
+			}
+		}
+		w.byte('}')
+
 	case *Struct:
 		w.string("struct{")
 		for i, f := range t.fields {

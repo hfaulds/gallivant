@@ -401,6 +401,11 @@ func (f *Finder) expr(e ast.Expr) types.Type {
 				f.expr(e.X)
 			}
 		} else {
+			if _, ok := f.info.Uses[e.Sel].(*types.Variant); ok {
+				// enum variant selected from its type: T.V or T.V(...)
+				// (the recorded type is the enum or its constructor signature)
+				return f.info.Types[e].Type
+			}
 			return f.info.Uses[e.Sel].Type() // qualified identifier
 		}
 
@@ -457,7 +462,15 @@ func (f *Finder) expr(e ast.Expr) types.Type {
 			// builtin call
 			if id, ok := ast.Unparen(e.Fun).(*ast.Ident); ok {
 				if obj, ok := f.info.Uses[id].(*types.Builtin); ok {
-					sig := f.info.Types[id].Type.(*types.Signature)
+					sig, ok := f.info.Types[id].Type.(*types.Signature)
+					if !ok {
+						// Gallivant: Err(e) without a Result target has an
+						// untyped result and no recorded signature.
+						for _, arg := range e.Args {
+							f.expr(arg)
+						}
+						return tv.Type
+					}
 					f.builtin(obj, sig, e.Args)
 					return tv.Type
 				}
@@ -616,6 +629,19 @@ func (f *Finder) stmt(s ast.Stmt) {
 			for _, cond := range cc.List {
 				f.compare(tag, f.info.Types[cond].Type)
 			}
+			for _, s := range cc.Body {
+				f.stmt(s)
+			}
+		}
+
+	case *ast.MatchStmt:
+		if s.Init != nil {
+			f.stmt(s.Init)
+		}
+		f.expr(s.Tag)
+		for _, cc := range s.Body.List {
+			cc := cc.(*ast.CaseClause)
+			// cc.List holds variant patterns, not expressions.
 			for _, s := range cc.Body {
 				f.stmt(s)
 			}

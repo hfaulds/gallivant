@@ -276,6 +276,29 @@ func (f *FieldList) NumFields() int {
 	return n
 }
 
+// A Variant represents one variant declaration in an enum type (Gallivant):
+//
+//	Name
+//	Name(params...)
+//
+// Params is nil if the variant was declared without parentheses, and a
+// FieldList with an empty List if it was declared as Name().
+type Variant struct {
+	Doc     *CommentGroup // associated documentation; or nil
+	Name    *Ident        // variant name
+	Params  *FieldList    // payload fields; or nil if declared without parentheses
+	Comment *CommentGroup // line comments; or nil
+}
+
+func (v *Variant) Pos() token.Pos { return v.Name.Pos() }
+
+func (v *Variant) End() token.Pos {
+	if v.Params != nil {
+		return v.Params.End()
+	}
+	return v.Name.End()
+}
+
 // An expression is represented by a tree consisting of one
 // or more of the following concrete expression nodes.
 type (
@@ -474,6 +497,19 @@ type (
 		Incomplete bool       // true if (source) methods or types are missing in the Methods list
 	}
 
+	// An EnumType node represents an enum type (Gallivant):
+	//
+	//	enum { Variant; Variant(fields...) }
+	//
+	// An enum type may only appear as the type of a type declaration.
+	EnumType struct {
+		Enum       token.Pos  // position of "enum" keyword
+		Lbrace     token.Pos  // position of "{"
+		Variants   []*Variant // variant declarations
+		Rbrace     token.Pos  // position of "}"
+		Incomplete bool       // true if (source) variants are missing in the Variants list
+	}
+
 	// A MapType node represents a map type.
 	MapType struct {
 		Map   token.Pos // position of "map" keyword
@@ -523,6 +559,7 @@ func (x *FuncType) Pos() token.Pos {
 	return x.Params.Pos() // interface method declarations have no "func" keyword
 }
 func (x *InterfaceType) Pos() token.Pos { return x.Interface }
+func (x *EnumType) Pos() token.Pos      { return x.Enum }
 func (x *MapType) Pos() token.Pos       { return x.Map }
 func (x *ChanType) Pos() token.Pos      { return x.Begin }
 
@@ -565,8 +602,17 @@ func (x *FuncType) End() token.Pos {
 	return x.Params.End()
 }
 func (x *InterfaceType) End() token.Pos { return x.Methods.End() }
-func (x *MapType) End() token.Pos       { return x.Value.End() }
-func (x *ChanType) End() token.Pos      { return x.Value.End() }
+func (x *EnumType) End() token.Pos {
+	if x.Rbrace.IsValid() {
+		return x.Rbrace + 1
+	}
+	if n := len(x.Variants); n > 0 {
+		return x.Variants[n-1].End()
+	}
+	return x.Enum + 4 // len("enum")
+}
+func (x *MapType) End() token.Pos  { return x.Value.End() }
+func (x *ChanType) End() token.Pos { return x.Value.End() }
 
 // exprNode() ensures that only expression/type nodes can be
 // assigned to an Expr.
@@ -592,6 +638,7 @@ func (*ArrayType) exprNode()     {}
 func (*StructType) exprNode()    {}
 func (*FuncType) exprNode()      {}
 func (*InterfaceType) exprNode() {}
+func (*EnumType) exprNode()      {}
 func (*MapType) exprNode()       {}
 func (*ChanType) exprNode()      {}
 
@@ -748,6 +795,20 @@ type (
 		Body   *BlockStmt // CaseClauses only
 	}
 
+	// A MatchStmt node represents a match statement (Gallivant):
+	//
+	//	match Init; Tag { Body }
+	//
+	// The Body consists of CaseClauses only. Each clause's List holds
+	// patterns: an *Ident (payload-less variant) or a *CallExpr whose Fun
+	// is an *Ident and whose Args are binding identifiers.
+	MatchStmt struct {
+		Match token.Pos  // position of "match" keyword
+		Init  Stmt       // initialization statement; or nil
+		Tag   Expr       // subject expression
+		Body  *BlockStmt // CaseClauses only
+	}
+
 	// A CommClause node represents a case of a select statement.
 	CommClause struct {
 		Case  token.Pos // position of "case" or "default" keyword
@@ -802,6 +863,7 @@ func (s *IfStmt) Pos() token.Pos         { return s.If }
 func (s *CaseClause) Pos() token.Pos     { return s.Case }
 func (s *SwitchStmt) Pos() token.Pos     { return s.Switch }
 func (s *TypeSwitchStmt) Pos() token.Pos { return s.Switch }
+func (s *MatchStmt) Pos() token.Pos      { return s.Match }
 func (s *CommClause) Pos() token.Pos     { return s.Case }
 func (s *SelectStmt) Pos() token.Pos     { return s.Select }
 func (s *ForStmt) Pos() token.Pos        { return s.For }
@@ -859,6 +921,7 @@ func (s *CaseClause) End() token.Pos {
 }
 func (s *SwitchStmt) End() token.Pos     { return s.Body.End() }
 func (s *TypeSwitchStmt) End() token.Pos { return s.Body.End() }
+func (s *MatchStmt) End() token.Pos      { return s.Body.End() }
 func (s *CommClause) End() token.Pos {
 	if n := len(s.Body); n > 0 {
 		return s.Body[n-1].End()
@@ -888,6 +951,7 @@ func (*IfStmt) stmtNode()         {}
 func (*CaseClause) stmtNode()     {}
 func (*SwitchStmt) stmtNode()     {}
 func (*TypeSwitchStmt) stmtNode() {}
+func (*MatchStmt) stmtNode()      {}
 func (*CommClause) stmtNode()     {}
 func (*SelectStmt) stmtNode()     {}
 func (*ForStmt) stmtNode()        {}

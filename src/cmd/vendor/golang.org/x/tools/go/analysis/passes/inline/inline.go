@@ -461,6 +461,13 @@ func typenames(t types.Type) []*types.TypeName {
 			for field := range t.Fields() {
 				visit(field.Type())
 			}
+		case *types.Enum:
+			for i := 0; i < t.NumVariants(); i++ {
+				v := t.Variant(i)
+				for j := 0; j < v.NumFields(); j++ {
+					visit(v.Field(j).Type())
+				}
+			}
 		case *types.Signature:
 			// Ignore the receiver: although it may be present, it has no meaning
 			// in a type expression.

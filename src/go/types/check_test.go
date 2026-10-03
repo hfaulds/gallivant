@@ -182,6 +182,7 @@ func testFiles(t *testing.T, filenames []string, srcs [][]byte, manual bool, opt
 	flags.StringVar(&conf.GoVersion, "lang", "", "")
 	flags.StringVar(&goexperiment, "goexperiment", "", "")
 	flags.BoolVar(&conf.FakeImportC, "fakeImportC", false, "")
+	flags.BoolVar(&conf.NoNil, "nonil", false, "")
 	if err := parseFlags(srcs[0], flags); err != nil {
 		t.Fatal(err)
 	}

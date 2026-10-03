@@ -24,6 +24,8 @@ func (s *gcSizes) Alignof(T Type) (result int64) {
 		// spec: "For a variable x of array type: unsafe.Alignof(x)
 		// is the same as unsafe.Alignof(x[0]), but at least 1."
 		return s.Alignof(t.elem)
+	case *Enum:
+		return s.Alignof(t.loweredStruct())
 	case *Struct:
 		if len(t.fields) == 0 && _IsSyncAtomicAlign64(T) {
 			// Special case: sync/atomic.align64 is an
@@ -133,6 +135,8 @@ func (s *gcSizes) Sizeof(T Type) int64 {
 		return esize * n
 	case *Slice:
 		return s.WordSize * 3
+	case *Enum:
+		return s.Sizeof(t.loweredStruct())
 	case *Struct:
 		n := t.NumFields()
 		if n == 0 {

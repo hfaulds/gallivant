@@ -64,6 +64,11 @@ func ZeroString(t types.Type, qual types.Qualifier) (_ string, isValid bool) {
 		switch under := t.Underlying().(type) {
 		case *types.Struct, *types.Array:
 			return types.TypeString(t, qual) + "{}", true
+		case *types.Enum:
+			// The zero value of an enum is its first variant; *new(T)
+			// spells it without naming the variant. Assumes func new
+			// is not shadowed.
+			return "*new(" + types.TypeString(t, qual) + ")", true
 		default:
 			return ZeroString(under, qual)
 		}
@@ -72,6 +77,8 @@ func ZeroString(t types.Type, qual types.Qualifier) (_ string, isValid bool) {
 		switch t.Underlying().(type) {
 		case *types.Struct, *types.Array:
 			return types.TypeString(t, qual) + "{}", true
+		case *types.Enum:
+			return "*new(" + types.TypeString(t, qual) + ")", true
 		default:
 			// A type parameter can have alias but alias type's underlying type
 			// can never be a type parameter.
@@ -159,6 +166,9 @@ func ZeroExpr(t types.Type, qual types.Qualifier) (_ ast.Expr, isValid bool) {
 			return &ast.CompositeLit{
 				Type: TypeExpr(t, qual),
 			}, true
+		case *types.Enum:
+			// *new(T): see ZeroString.
+			return &ast.StarExpr{X: &ast.CallExpr{Fun: ast.NewIdent("new"), Args: []ast.Expr{TypeExpr(t, qual)}}}, true
 		default:
 			return ZeroExpr(under, qual)
 		}
@@ -169,6 +179,8 @@ func ZeroExpr(t types.Type, qual types.Qualifier) (_ ast.Expr, isValid bool) {
 			return &ast.CompositeLit{
 				Type: TypeExpr(t, qual),
 			}, true
+		case *types.Enum:
+			return &ast.StarExpr{X: &ast.CallExpr{Fun: ast.NewIdent("new"), Args: []ast.Expr{TypeExpr(t, qual)}}}, true
 		default:
 			return ZeroExpr(types.Unalias(t), qual)
 		}

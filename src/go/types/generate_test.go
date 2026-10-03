@@ -209,6 +209,7 @@ var filemap = map[string]action{
 	"typestring.go":    nil,
 	"under.go":         nil,
 	"unify.go":         fixSprintf,
+	"enum.go":          fixTokenPos,
 	"universe.go":      fixGlobalTypVarDecl,
 	"util_test.go":     fixTokenPos,
 	"validtype.go":     func(f *ast.File) { fixTokenPos(f); renameSelectors(f, "Trace->_Trace") },
