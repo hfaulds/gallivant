@@ -35,6 +35,7 @@ go test -a m/vetfail/p2
 module m
 
 go 1.16
+nonil false
 -- p1_test.go --
 package p
 

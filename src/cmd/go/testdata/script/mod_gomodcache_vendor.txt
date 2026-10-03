@@ -17,6 +17,7 @@ cmp stdout version-m.txt
 -- go.mod --
 module example
 go 1.22
+caps false
 require rsc.io/sampler v1.3.0
 
 -- main.go --

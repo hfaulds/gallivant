@@ -83,6 +83,7 @@ grep 'rsc.io' $WORK/covdata2/out.txt
 module mod.example
 
 go 1.20
+caps false
 
 require rsc.io/quote/v3 v3.0.0
 

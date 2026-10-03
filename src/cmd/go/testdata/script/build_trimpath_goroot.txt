@@ -65,6 +65,7 @@ stdout '^runtime '$TESTGO_GOROOT${/}src${/}runtime'$'
 module example
 
 go 1.19
+nonil false
 -- main.go --
 package main
 

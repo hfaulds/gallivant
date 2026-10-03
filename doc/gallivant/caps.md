@@ -86,12 +86,17 @@ The trust boundary is the module edge, and only your own code is checked:
   modules are not: its capabilities, and those of everything it imports,
   are charged to the grant on your import of it. Ordinary Go modules
   therefore work as dependencies without knowing about grants.
+- A main module whose go.mod says `caps false` is not checked either. This
+  is for code written before grants existed; `caps` and `caps true` state
+  the default. `go list -m -json` reports `"Caps": true` for main modules
+  that are checked.
 - Standard library imports are never checked.
 - Imports of packages in the same module as P are never checked.
 - Your own code's direct use of the standard library is unconstrained.
 
 `cmd/go` passes the module path of the package being compiled to the compiler
-with the new `-modpath` flag, and `-checkcaps` for packages of main modules.
+with the new `-modpath` flag, and `-checkcaps` for packages of main modules
+(the same packages that get `-nonil`, see [nonil.md](nonil.md)).
 Packages compiled without a module path (GOPATH mode, ad-hoc files) are
 treated as their own module, so every third-party import is checked.
 

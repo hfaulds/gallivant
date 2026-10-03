@@ -21,6 +21,7 @@ import (
 	"cmd/go/internal/modindex"
 	"cmd/go/internal/modinfo"
 	"cmd/go/internal/search"
+	"cmd/go/internal/str"
 
 	"golang.org/x/mod/module"
 )
@@ -298,6 +299,72 @@ func addDeprecation(ld *Loader, ctx context.Context, m *modinfo.ModulePublic) {
 	m.Deprecated = deprecation
 }
 
+// mainModuleNoNil reports whether the packages of main module m are
+// compiled with -nonil (Gallivant). They are unless m's go.mod says
+// "nonil false" or m is not the user's own code (see ownMainModule).
+func mainModuleNoNil(ld *Loader, m module.Version) bool {
+	if f := ld.MainModules.ModFile(m); f != nil && f.NoNil != nil && !f.NoNil.Value {
+		return false
+	}
+	return ownMainModule(ld, m)
+}
+
+// mainModuleCaps reports whether the packages of main module m are
+// compiled with -checkcaps (Gallivant). They are unless m's go.mod says
+// "caps false" or m is not the user's own code (see ownMainModule).
+func mainModuleCaps(ld *Loader, m module.Version) bool {
+	if f := ld.MainModules.ModFile(m); f != nil && f.Caps != nil && !f.Caps.Value {
+		return false
+	}
+	return ownMainModule(ld, m)
+}
+
+// ownMainModule reports whether main module m is the user's own code, to
+// which Gallivant's default-on checks apply. The std and cmd modules are
+// not, nor is a module run from the module cache by
+// 'go run/install pkg@version', which is a dependency in all but name.
+func ownMainModule(ld *Loader, m module.Version) bool {
+	if ld.MainModules.InGorootSrc(m) {
+		return false
+	}
+	modRoot := ld.MainModules.ModRoot(m)
+	return modRoot == "" || cfg.GOMODCACHE == "" || !str.HasFilePathPrefix(modRoot, cfg.GOMODCACHE)
+}
+
+// MainModuleNoNilForDir reports whether files in dir that are named on
+// the command line are compiled with -nonil, following the main module
+// whose directory tree contains dir. ok is false if no main module does.
+func MainModuleNoNilForDir(ld *Loader, dir string) (nonil, ok bool) {
+	m, ok := mainModuleForDir(ld, dir)
+	if !ok {
+		return false, false
+	}
+	return mainModuleNoNil(ld, m), true
+}
+
+// MainModuleCapsForDir is like MainModuleNoNilForDir for -checkcaps.
+func MainModuleCapsForDir(ld *Loader, dir string) (caps, ok bool) {
+	m, ok := mainModuleForDir(ld, dir)
+	if !ok {
+		return false, false
+	}
+	return mainModuleCaps(ld, m), true
+}
+
+// mainModuleForDir returns the main module whose directory tree most
+// closely contains dir.
+func mainModuleForDir(ld *Loader, dir string) (module.Version, bool) {
+	var best module.Version
+	bestRoot := ""
+	for _, m := range ld.MainModules.Versions() {
+		root := ld.MainModules.ModRoot(m)
+		if root != "" && str.HasFilePathPrefix(dir, root) && len(root) > len(bestRoot) {
+			best, bestRoot = m, root
+		}
+	}
+	return best, bestRoot != ""
+}
+
 // moduleInfo returns information about module m, loaded from the requirements
 // in rs (which may be nil to indicate that m was not loaded from a requirement
 // graph).
@@ -317,9 +384,8 @@ func moduleInfo(ld *Loader, ctx context.Context, rs *Requirements, m module.Vers
 			info.Dir = modRoot
 			info.GoMod = modFilePath(modRoot)
 		}
-		if f := ld.MainModules.ModFile(m); f != nil && f.NoNil != nil {
-			info.NoNil = true
-		}
+		info.NoNil = mainModuleNoNil(ld, m)
+		info.Caps = mainModuleCaps(ld, m)
 		return info
 	}
 

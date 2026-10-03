@@ -65,6 +65,7 @@ stdout '^dir='$WORK'.+i err=<nil>$'
 
 -- go.mod --
 module gobuild.example.com/x/y/z
+nonil false
 
 -- z.go --
 package z
@@ -128,6 +129,7 @@ func main() {
 
 -- $GOPATH/other/go.mod --
 module other/x/y
+nonil false
 
 -- $GOPATH/other/z/w/w2.go --
 package w

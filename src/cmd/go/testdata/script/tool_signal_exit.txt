@@ -11,6 +11,7 @@ module example.com/interrupter
 go 1.26.0
 
 tool example.com/interrupter/cmd/interrupter
+nonil false
 
 -- cmd/interrupter/main.go --
 package main

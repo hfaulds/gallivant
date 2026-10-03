@@ -46,15 +46,40 @@ type File struct {
 	Retract   []*Retract
 	Tool      []*Tool
 	Ignore    []*Ignore
-	NoNil     *NoNil // Gallivant: the module rejects uses of nil
+	NoNil     *NoNil // Gallivant: the nonil statement; nil if absent
+	Caps      *Caps  // Gallivant: the caps statement; nil if absent
 
 	Syntax *FileSyntax
 }
 
-// A NoNil is the Gallivant nonil statement, which makes the compiler
-// reject uses of the predeclared identifier nil in the module's packages.
+// A NoNil is the Gallivant nonil statement. Main modules are compiled so
+// that uses of the predeclared identifier nil are rejected unless their
+// go.mod says "nonil false"; "nonil" and "nonil true" state the default
+// explicitly.
 type NoNil struct {
+	Value  bool
 	Syntax *Line
+}
+
+// A Caps is the Gallivant caps statement. The capability grants on the
+// imports of main modules are enforced unless their go.mod says
+// "caps false"; "caps" and "caps true" state the default explicitly.
+type Caps struct {
+	Value  bool
+	Syntax *Line
+}
+
+// parseBoolStmt parses the arguments of a Gallivant statement that takes
+// an optional true or false, defaulting to true.
+func parseBoolStmt(verb string, args []string, errorf func(string, ...interface{})) (value, ok bool) {
+	switch {
+	case len(args) == 0, len(args) == 1 && args[0] == "true":
+		return true, true
+	case len(args) == 1 && args[0] == "false":
+		return false, true
+	}
+	errorf("usage: %s [true|false]", verb)
+	return false, false
 }
 
 // A Module is the module statement.
@@ -414,11 +439,18 @@ func (f *File) add(errs *ErrorList, block *LineBlock, line *Line, verb string, a
 			errorf("repeated nonil statement")
 			return
 		}
-		if len(args) != 0 {
-			errorf("nonil directive takes no arguments")
+		if value, ok := parseBoolStmt(verb, args, errorf); ok {
+			f.NoNil = &NoNil{Value: value, Syntax: line}
+		}
+
+	case "caps":
+		if f.Caps != nil {
+			errorf("repeated caps statement")
 			return
 		}
-		f.NoNil = &NoNil{Syntax: line}
+		if value, ok := parseBoolStmt(verb, args, errorf); ok {
+			f.Caps = &Caps{Value: value, Syntax: line}
+		}
 
 	case "toolchain":
 		if f.Toolchain != nil {

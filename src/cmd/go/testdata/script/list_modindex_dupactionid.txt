@@ -7,7 +7,7 @@
 
 [short] skip 'builds and runs a go program'
 sleep 2s # Sleep so that the unpacked files are > 2 seconds old. The index won't be used if the modified times on the files are newer.
-go build -o check$GOEXE check.go
+go build -gcflags=-nonil=false -o check$GOEXE check.go
 cd mod
 env GOCACHE=$WORK/newcache # Run list command in a clean cache.
 go list all
@@ -15,6 +15,7 @@ exec ../check$GOEXE
 
 -- mod/go.mod --
 module example.com/foo
+nonil false
 -- mod/foo.go --
 package foo
 -- check.go --

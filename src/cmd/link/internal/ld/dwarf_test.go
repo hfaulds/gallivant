@@ -104,7 +104,13 @@ func gobuild(t *testing.T, dir string, testfile string, gcflags string) *builtFi
 		t.Fatal(err)
 	}
 
-	cmd := testenv.Command(t, testenv.GoToolPath(t), "build", gcflags, "-o", dst, src)
+	// Gallivant: the test programs use nil. gcflags may hold -ldflags.
+	args := []string{"build", gcflags, "-gcflags=-nonil=false"}
+	if strings.HasPrefix(gcflags, "-gcflags=") {
+		args = []string{"build", gcflags + " -nonil=false"}
+	}
+	args = append(args, "-o", dst, src)
+	cmd := testenv.Command(t, testenv.GoToolPath(t), args...)
 	b, err := cmd.CombinedOutput()
 	if len(b) != 0 {
 		t.Logf("## build output:\n%s", b)

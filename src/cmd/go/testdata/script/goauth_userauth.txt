@@ -30,7 +30,7 @@ go list all
 stdout vcs-test.golang.org/auth/or401
 
 # Second invocation of authenticator is successful.
-go build -o $WORK/bin/reinvocation$GOEXE scripts/reinvocation.go
+go build -gcflags=-nonil=false -o $WORK/bin/reinvocation$GOEXE scripts/reinvocation.go
 # With credentials from the binary, it should succeed.
 env GOAUTH='reinvocation'$GOEXE
 cp go.mod.orig go.mod

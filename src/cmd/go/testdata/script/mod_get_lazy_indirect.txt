@@ -38,6 +38,7 @@ grep 'rsc.io/quote v\d+\.\d+\.\d+$' go.mod
 module example.com/m
 
 go 1.17
+caps false
 -- m.go --
 package m
 

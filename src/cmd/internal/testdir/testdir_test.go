@@ -475,6 +475,14 @@ func (test) goGcflags() string {
 	return "-gcflags=all=" + os.Getenv("GO_GCFLAGS")
 }
 
+// goNoNilGcflags returns a -gcflags argument, to follow goGcflags, that
+// compiles the packages named on the command line without Gallivant's
+// default -nonil, since the tests are ordinary Go that uses nil. It only
+// applies to the named packages so the standard library is not rebuilt.
+func (test) goNoNilGcflags() string {
+	return "-gcflags=" + os.Getenv("GO_GCFLAGS") + " -nonil=false"
+}
+
 func (test) goGcflagsIsEmpty() bool {
 	return "" == os.Getenv("GO_GCFLAGS")
 }
@@ -932,12 +940,12 @@ func (t test) run() error {
 		if modVersion == "" {
 			modVersion = "1.14"
 		}
-		modFile := fmt.Sprintf("module %s\ngo %s\n", modName, modVersion)
+		modFile := fmt.Sprintf("module %s\ngo %s\nnonil false\n", modName, modVersion)
 		if err := os.WriteFile(filepath.Join(gopathSrcDir, "go.mod"), []byte(modFile), 0666); err != nil {
 			t.Fatal(err)
 		}
 
-		cmd := []string{goTool, "run", t.goGcflags()}
+		cmd := []string{goTool, "run", t.goGcflags(), t.goNoNilGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
@@ -951,7 +959,7 @@ func (t test) run() error {
 
 	case "build":
 		// Build Go file.
-		cmd := []string{goTool, "build", t.goGcflags()}
+		cmd := []string{goTool, "build", t.goGcflags(), t.goNoNilGcflags()}
 		cmd = append(cmd, flags...)
 		cmd = append(cmd, "-o", "a.exe", long)
 		_, err := runcmd(cmd...)
@@ -1032,7 +1040,7 @@ func (t test) run() error {
 		// Build an executable from Go file, then run it, verify its output.
 		// Useful for timeout tests where failure mode is infinite loop.
 		// TODO: not supported on NaCl
-		cmd := []string{goTool, "build", t.goGcflags(), "-o", "a.exe"}
+		cmd := []string{goTool, "build", t.goGcflags(), t.goNoNilGcflags(), "-o", "a.exe"}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
@@ -1076,7 +1084,7 @@ func (t test) run() error {
 			}
 			out, err = runcmd(append([]string{exe}, args...)...)
 		} else {
-			cmd := []string{goTool, "run", t.goGcflags()}
+			cmd := []string{goTool, "run", t.goGcflags(), t.goNoNilGcflags()}
 			if *linkshared {
 				cmd = append(cmd, "-linkshared")
 			}
@@ -1097,7 +1105,7 @@ func (t test) run() error {
 			<-t.runoutputGate
 		}()
 		runInDir = ""
-		cmd := []string{goTool, "run", t.goGcflags()}
+		cmd := []string{goTool, "run", t.goGcflags(), t.goNoNilGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
@@ -1110,7 +1118,7 @@ func (t test) run() error {
 		if err := os.WriteFile(tfile, out, 0666); err != nil {
 			t.Fatalf("write tempfile: %v", err)
 		}
-		cmd = []string{goTool, "run", t.goGcflags()}
+		cmd = []string{goTool, "run", t.goGcflags(), t.goNoNilGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
@@ -1125,7 +1133,7 @@ func (t test) run() error {
 		// Run Go file and write its output into temporary Go file.
 		// Compile and errorCheck generated Go file.
 		runInDir = ""
-		cmd := []string{goTool, "run", t.goGcflags()}
+		cmd := []string{goTool, "run", t.goGcflags(), t.goNoNilGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}

@@ -28,6 +28,7 @@ exec ./unused$GOEXE
 
 -- x/go.mod --
 module x
+nonil false
 
 -- x/lib/lib.go --
 // Package lib accesses runtime/debug.modinfo before package main's init

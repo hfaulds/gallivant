@@ -15,6 +15,7 @@ stderr 'no required module provides package rsc.io/quote'
 module example.com/my-module
 
 go 1.20
+caps false
 -- my-module/vendor/example.com/another-module/foo/bar/baz.go --
 package main
 
@@ -28,7 +29,7 @@ package main
 
 import (
     "fmt"
-    "rsc.io/quote"
+    "rsc.io/quote" with [env]
 )
 
 func main() {

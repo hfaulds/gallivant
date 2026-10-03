@@ -38,6 +38,22 @@ stderr 'compile.* -p main .*-checkcaps'
 ! go build -o $devnull ./viadep3bad
 stderr '^(\./)?viadep3bad[/\\]main\.go:3:8: import "example\.com/dep3" uses capabilities \[net\] but is only granted \[\]$'
 
+# Grants are enforced by default; "caps false" in go.mod opts a module
+# written before grants existed out. Its capability facts are still
+# recorded.
+go list -m -f '{{.Caps}}'
+stdout '^true$'
+cd legacy
+go list -m -f '{{.Caps}}'
+stdout '^false$'
+go build -o $devnull .
+go build -n -a -o $devnull .
+! stderr 'compile.* -p main .*-checkcaps'
+cd ../badcaps
+! go list -m
+stderr 'go\.mod:4: usage: caps \[true\|false\]'
+cd ..
+
 # Unknown capabilities are rejected.
 ! go build -o $devnull ./badtoken
 stderr '^(\./)?badtoken[/\\]main\.go:7:43: unknown capability bogus \(want one of \[.*\]\)$'
@@ -181,3 +197,23 @@ func Ping() {
 		c.Close()
 	}
 }
+-- legacy/go.mod --
+module example.com/legacy
+
+go 1.27
+caps false
+
+require example.com/dep2 v0.0.0
+
+replace example.com/dep2 => ../dep2
+-- legacy/main.go --
+package main
+
+import "example.com/dep2"
+
+func main() { dep2.Ping() }
+-- badcaps/go.mod --
+module example.com/badcaps
+
+go 1.27
+caps maybe

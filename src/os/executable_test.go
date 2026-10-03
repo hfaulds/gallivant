@@ -101,7 +101,7 @@ func TestExecutableDeleted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := testenv.Command(t, testenv.GoToolPath(t), "build", "-o", exe, src).CombinedOutput()
+	out, err := testenv.Command(t, testenv.GoToolPath(t), "build", "-gcflags=-nonil=false", "-o", exe, src).CombinedOutput()
 	t.Logf("build output:\n%s", out)
 	if err != nil {
 		t.Fatal(err)

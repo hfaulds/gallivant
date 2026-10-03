@@ -16,6 +16,7 @@ go test .
 module example
 
 go 1.19
+nonil false
 -- example_test.go --
 package example
 

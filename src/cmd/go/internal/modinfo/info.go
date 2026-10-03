@@ -26,7 +26,8 @@ type ModulePublic struct {
 	Dir        string           `json:",omitempty"` // directory holding local copy of files, if any
 	GoMod      string           `json:",omitempty"` // path to go.mod file describing module, if any
 	GoVersion  string           `json:",omitempty"` // go version used in module
-	NoNil      bool             `json:",omitempty"` // Gallivant: module has a nonil directive (main modules only)
+	NoNil      bool             `json:",omitempty"` // Gallivant: module is compiled with -nonil (main modules only; on unless go.mod says "nonil false")
+	Caps       bool             `json:",omitempty"` // Gallivant: module is compiled with -checkcaps (main modules only; on unless go.mod says "caps false")
 	Retracted  []string         `json:",omitempty"` // retraction information, if any (with -retracted or -u)
 	Deprecated string           `json:",omitempty"` // deprecation message, if any (with -u)
 	Error      *ModuleError     `json:",omitempty"` // error loading module

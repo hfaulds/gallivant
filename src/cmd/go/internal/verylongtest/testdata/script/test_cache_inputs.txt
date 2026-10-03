@@ -1,5 +1,6 @@
 env GO111MODULE=off
 env GOPATH=$WORK/gopath
+env GOFLAGS=-gcflags=-nonil=false # Gallivant: GOPATH mode has no go.mod to opt out of nonil
 cd $WORK/gopath/src
 
 # Test that cached test results are invalidated in response to

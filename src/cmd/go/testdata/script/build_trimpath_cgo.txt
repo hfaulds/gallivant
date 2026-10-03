@@ -46,6 +46,7 @@ go run ./list-dwarf hello_overlay.exe
 module m
 
 go 1.14
+nonil false
 -- overlay.json --
 {
 	"Replace": {

@@ -38,6 +38,7 @@ go test -run=ReadTestdata .
 
 -- go.mod --
 module golang.org/issue/29111/foo
+nonil false
 
 -- foo.go --
 package foo

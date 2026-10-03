@@ -1,8 +1,8 @@
-# Gallivant nonil modules (doc/gallivant/nonil.md): a module whose go.mod
-# has a nonil directive is compiled with -nonil, which rejects the
-# predeclared identifier nil.
+# Gallivant nonil (doc/gallivant/nonil.md): packages are compiled with
+# -nonil, which rejects the predeclared identifier nil, unless their
+# module's go.mod says "nonil false".
 
-# cmd/go passes -nonil for packages of a main module with the directive,
+# cmd/go passes -nonil by default for packages of a main module,
 # and not for the standard library.
 go build -n -a -o $devnull ./ok
 stderr 'compile.* -p main .*-nonil'
@@ -16,17 +16,62 @@ stdout '"NoNil": true'
 stderr '^(\./)?bad[/\\]main\.go:6:15: use of nil in nonil module \(use Option, Result or a zero value instead\)$'
 stderr '^(\./)?bad[/\\]main\.go:9:12: use of nil in nonil module'
 
-# A module without the directive compiles the same code.
-cd plain
-go build -o $devnull ./...
+# Files named on the command line follow the module containing them.
+! go build -o $devnull bad/main.go
+stderr 'use of nil in nonil module'
+
+# Coverage instrumentation does not introduce nil.
+go test -cover ./ok
+stdout '^ok\s+example.com/app/ok\s.*coverage:'
+
+# -gcflags=-nonil=false overrides the default.
+go build -o $devnull -gcflags=-nonil=false ./bad
+
+# "nonil true" states the default explicitly.
+cd explicit
+! go build -o $devnull .
+stderr 'use of nil in nonil module'
+go list -m -json
+stdout '"NoNil": true'
+
+# "nonil false" opts out, for code written before nonil.
+cd ../legacy
+go build -n -a -o $devnull .
+! stderr 'compile.* -p main .*-nonil'
+go build -o $devnull .
+go build -o $devnull lib/lib.go
 go list -m -json
 ! stdout '"NoNil"'
+
+# The legacy module may be a dependency of a nonil module, and a nonil
+# module may depend on a legacy one: dependencies are never compiled with
+# -nonil.
+cd ../usedep
+go build -o $devnull .
+
+# Any other value is a go.mod error.
+cd ../invalid
+! go build .
+stderr 'usage: nonil \[true\|false\]'
+
+# Code outside any module is nonil too; it opts out with gcflags.
+cd ..
+env GO111MODULE=off
+! go run nomod.go
+stderr 'use of nil in nonil module'
+go run -gcflags=-nonil=false nomod.go
+stdout '^<nil>$'
+env GO111MODULE=on
+cd $WORK
+! go run nomod.go
+stderr 'use of nil in nonil module'
+go run -gcflags=-nonil=false nomod.go
+stdout '^<nil>$'
 
 -- go.mod --
 module example.com/app
 
 go 1.27
-nonil
 -- ok/main.go --
 package main
 
@@ -50,6 +95,18 @@ func main() {
 	var p *int // zero values are fine
 	_ = p
 }
+-- ok/main_test.go --
+package main
+
+import "testing"
+
+func TestParse(t *testing.T) {
+	match parse("x") {
+	case Ok(n):
+		t.Fatalf("parse(%q) = Ok(%d), want Err", "x", n)
+	case Err(_):
+	}
+}
 -- bad/main.go --
 package main
 
@@ -63,14 +120,82 @@ func main() {
 		fmt.Println(err)
 	}
 }
--- plain/go.mod --
-module example.com/plain
+-- nomod.go --
+package main
+
+import "fmt"
+
+func main() {
+	var p *int = nil
+	fmt.Println(p)
+}
+-- $WORK/nomod.go --
+package main
+
+import "fmt"
+
+func main() {
+	var p *int = nil
+	fmt.Println(p)
+}
+-- explicit/go.mod --
+module example.com/explicit
 
 go 1.27
--- plain/main.go --
+nonil true
+-- explicit/main.go --
 package main
 
 func main() {
 	var p *int = nil
 	_ = p
 }
+-- legacy/go.mod --
+module example.com/legacy
+
+go 1.27
+nonil false
+-- legacy/main.go --
+package main
+
+import "example.com/legacy/lib"
+
+func main() {
+	_ = lib.Find()
+}
+-- legacy/lib/lib.go --
+package lib
+
+func Find() *int {
+	return nil
+}
+-- usedep/go.mod --
+module example.com/usedep
+
+go 1.27
+
+require example.com/legacy v0.0.0
+
+replace example.com/legacy => ../legacy
+-- usedep/main.go --
+package main
+
+import (
+	"fmt"
+	"option"
+
+	"example.com/legacy/lib"
+)
+
+func main() {
+	fmt.Println(option.IsNone(option.FromPtr(lib.Find())))
+}
+-- invalid/go.mod --
+module example.com/invalid
+
+go 1.27
+nonil maybe
+-- invalid/main.go --
+package main
+
+func main() {}

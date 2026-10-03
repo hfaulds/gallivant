@@ -91,6 +91,7 @@ use (
 -- a/go.mod --
 
 module example.com/a
+caps false
 
 -- a/a.go --
 package a
@@ -105,6 +106,7 @@ func HelloFromA() {
 -- b/go.mod --
 
 module example.com/b
+caps false
 
 -- b/main.go --
 package main
@@ -129,6 +131,7 @@ it and make sure paths are interpreted
 relative to the go.work, not the cwd.
 -- d/go.mod --
 module example.com/d
+caps false
 
 -- d/main.go --
 package main

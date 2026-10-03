@@ -45,6 +45,7 @@ go list -export -covermode=count m/example
 module m
 
 go 1.20
+nonil false
 -- example/main.go --
 package main
 

@@ -70,6 +70,7 @@ cmp -q $WORK/paths-a.exe $WORK/paths-b.exe
 # Same sequence of tests but in GOPATH mode.
 # A binary built without -trimpath should contain GOPATH and GOROOT.
 env GO111MODULE=off
+env GOFLAGS=-gcflags=-nonil=false # Gallivant: paths.go uses nil and GOPATH mode has no go.mod to opt out
 cd $WORK
 env GOPATH=$WORK/a
 go build -o paths-dbg.exe paths
@@ -165,3 +166,4 @@ func check(data []byte, desc, dir string) {
 module paths
 
 go 1.14
+nonil false

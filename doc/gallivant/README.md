@@ -13,8 +13,8 @@ Gallivant adds four things to Go. Everything else, including the toolchain,
 | `enum` types (tagged unions / sum types) | done | [enums.md](enums.md) |
 | `match` statement with exhaustiveness checking | done | [enums.md](enums.md) |
 | Predeclared `Option[T]` and `Result[T]` enums, packages `option` and `result` | done | [option-result.md](option-result.md) |
-| Import capabilities (`with [...]` grants on imports) | done | [caps.md](caps.md) |
-| `nonil` modules | done | [nonil.md](nonil.md) |
+| Import capabilities (`with [...]` grants on imports; `caps false` in go.mod opts out) | done | [caps.md](caps.md) |
+| No `nil` by default (`nonil false` in go.mod opts out) | done | [nonil.md](nonil.md) |
 
 ## Building
 
@@ -38,8 +38,18 @@ ghosts.
 
 ## Compatibility
 
-Gallivant is a strict superset of Go 1.27. Every valid Go program is a valid
-Gallivant program with the same meaning. The new keywords `enum` and `match`
+Apart from `nil` and import capabilities, Gallivant is a strict superset of
+Go 1.27. Gallivant rejects `nil` and enforces capability grants on imports by
+default, so an existing Go module needs two lines in its go.mod:
+
+```
+nonil false
+caps false
+```
+
+With those lines, every valid Go program is a valid Gallivant program with
+the same meaning. The standard library and dependency modules are always compiled
+as if they had it. The new keywords `enum` and `match`
 are *contextual*: they only act as keywords in positions where an identifier
 could never have appeared in Go, so existing code that uses `match` or `enum`
 as identifiers keeps compiling.

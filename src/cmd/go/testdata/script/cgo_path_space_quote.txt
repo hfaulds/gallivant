@@ -27,6 +27,7 @@ stdout 1
 module test
 
 go 1.17
+nonil false
 -- which cc/which cc.go --
 package main
 

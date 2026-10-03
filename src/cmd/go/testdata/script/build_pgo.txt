@@ -36,7 +36,7 @@ go list -export -json=BuildID -pgo=prof triv.go
 cmp stdout list.out
 
 # overwrite the prof
-go run overwrite.go
+go run -gcflags=-nonil=false overwrite.go
 
 # build again, profile content changed, should trigger rebuild, including std
 go build -n -pgo=prof triv.go

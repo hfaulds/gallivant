@@ -43,11 +43,17 @@ func main() {
 module TODO
 
 go 1.14
+nonil false
+caps false
 -- go.sum --
 -- go.mod.want --
 module golang.org/issue/34634
 
 go 1.14
+
+nonil false
+
+caps false
 
 require rsc.io/sampler v1.99.99
 -- go.sum.want --

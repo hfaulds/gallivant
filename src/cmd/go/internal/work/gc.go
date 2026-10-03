@@ -85,13 +85,12 @@ func (gcToolchain) gc(b *Builder, a *Action, archive string, importcfg, embedcfg
 		// it can skip import capability checks for intra-module imports.
 		defaultGcFlags = append(defaultGcFlags, "-modpath="+p.Module.Path)
 	}
-	if !p.Standard && (p.Module == nil || p.Module.Main) {
-		// Gallivant: enforce import capability grants in main modules
+	if p.Internal.CheckCaps {
+		// Gallivant: enforce import capability grants in your own code
 		// only, so dependencies need not know about them.
 		defaultGcFlags = append(defaultGcFlags, "-checkcaps")
 	}
-	if p.Module != nil && p.Module.NoNil {
-		// Gallivant: the module's go.mod has a nonil directive.
+	if p.Internal.NoNil {
 		defaultGcFlags = append(defaultGcFlags, "-nonil")
 	}
 

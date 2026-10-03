@@ -54,6 +54,7 @@ stdout '^rsc.io/quote/v3 v3.0.0 '$GOPATH'[/\\]pkg[/\\]mod[/\\]not-rsc.io[/\\]quo
 
 -- go.mod --
 module quoter
+caps false
 
 require rsc.io/quote/v3 v3.0.0
 

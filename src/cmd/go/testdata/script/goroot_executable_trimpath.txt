@@ -20,7 +20,7 @@ mkdir $WORK/new/bin/${GOOS}_${GOARCH}
 # options it may have been built with, such as -trimpath or not.
 # Instead, we build a fresh copy of the binary with known settings.
 go build -trimpath -o $WORK/new/bin/go$GOEXE cmd/go &
-go build -trimpath -o $WORK/bin/check$GOEXE check.go &
+go build -trimpath -gcflags=-nonil=false -o $WORK/bin/check$GOEXE check.go &
 wait
 
 env TESTGOROOT=$GOROOT
