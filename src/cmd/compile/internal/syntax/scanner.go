@@ -747,16 +747,19 @@ func (s *scanner) lineComment() {
 	}
 
 	// are we saving directives? or is this definitely not a directive?
-	if s.mode&directives == 0 || (s.ch != 'g' && s.ch != 'l') {
+	if s.mode&directives == 0 || (s.ch != 'g' && s.ch != 'l' && s.ch != 'c') {
 		s.stop()
 		s.skipLine()
 		return
 	}
 
-	// recognize go: or line directives
+	// recognize go:, line or caps: directives
 	prefix := "go:"
-	if s.ch == 'l' {
+	switch s.ch {
+	case 'l':
 		prefix = "line "
+	case 'c':
+		prefix = "caps:"
 	}
 	for _, m := range prefix {
 		if s.ch != m {

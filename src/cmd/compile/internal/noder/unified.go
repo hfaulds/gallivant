@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"cmd/compile/internal/base"
+	"cmd/compile/internal/caps"
 	"cmd/compile/internal/inline"
 	"cmd/compile/internal/ir"
 	"cmd/compile/internal/pgoir"
@@ -321,6 +322,8 @@ func readBodies(target *ir.Package, duringInlining bool, profile *pgoir.Profile)
 func writePkgStub(m posMap, noders []*noder) string {
 	pkg, info, otherInfo := checkFiles(m, noders)
 
+	checkCaps(m, noders, pkg, info)
+
 	pw := newPkgWriter(m, pkg, info, otherInfo)
 
 	pw.collectDecls(noders)
@@ -345,6 +348,8 @@ func writePkgStub(m posMap, noders []*noder) string {
 		for _, name := range names {
 			w.obj(scope.Lookup(name), nil)
 		}
+
+		writeCapsFact(w.Encoder)
 
 		w.Sync(pkgbits.SyncEOF)
 		w.Flush()
@@ -436,6 +441,10 @@ func readPackage(pr *pkgReader, importpkg *types.Pkg, localStub bool) {
 			}
 		}
 
+		if fact := readCapsFact(&r.Decoder); !localStub {
+			caps.Record(importpkg.Path, fact)
+		}
+
 		r.Sync(pkgbits.SyncEOF)
 	}
 
@@ -516,6 +525,8 @@ func writeUnifiedExport(out io.Writer) {
 			}
 		}
 
+		readCapsFact(&r)
+
 		r.Sync(pkgbits.SyncEOF)
 	}
 
@@ -544,6 +555,8 @@ func writeUnifiedExport(out io.Writer) {
 			w.Reloc(pkgbits.SectionObj, idx)
 			w.Len(0)
 		}
+
+		writeCapsFact(w)
 
 		w.Sync(pkgbits.SyncEOF)
 		w.Flush()
@@ -576,4 +589,17 @@ func writeUnifiedExport(out io.Writer) {
 	}
 
 	base.Ctxt.Fingerprint = l.pw.DumpTo(out)
+}
+
+// writeCapsFact appends the capability fact of the package being compiled
+// (caps.Local, nil for standard-library packages) to the public root. It
+// must be kept in sync with readCapsFact and with the corresponding readers
+// in cmd/compile/internal/importer and go/internal/gcimporter.
+func writeCapsFact(w *pkgbits.Encoder) {
+	caps.Local.Write(w)
+}
+
+// readCapsFact reads the capability fact written by writeCapsFact.
+func readCapsFact(r *pkgbits.Decoder) *caps.Fact {
+	return caps.Read(r)
 }

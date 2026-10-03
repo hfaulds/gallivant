@@ -83,6 +83,8 @@ func readUnifiedPackage(fset *token.FileSet, ctxt *types.Context, imports map[st
 		assert(r.Len() == 0)
 	}
 
+	readCapsFact(&r.Decoder)
+
 	r.Sync(pkgbits.SyncEOF)
 
 	for _, fn := range pr.laterFns {
@@ -734,4 +736,21 @@ func newAliasTypeName(pos token.Pos, pkg *types.Package, name string, rhs types.
 	a := types.NewAlias(tname, rhs) // form TypeName -> Alias cycle
 	a.SetTypeParams(tparams)
 	return tname
+}
+
+// readCapsFact consumes the Gallivant import capability fact that
+// cmd/compile appends to the public root of its export data (see
+// cmd/compile/internal/noder.writeCapsFact). go/types has no use for it.
+func readCapsFact(r *pkgbits.Decoder) {
+	if !r.Bool() {
+		return
+	}
+	_ = r.String() // module path
+	for i, n := 0, r.Len(); i < n; i++ {
+		_ = r.String() // capability
+	}
+	for i, n := 0, r.Len(); i < n; i++ {
+		_ = r.String() // capability
+		_ = r.String() // origin chain
+	}
 }
