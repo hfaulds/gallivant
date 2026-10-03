@@ -156,6 +156,12 @@ func (d *deadState) findLabels(stmt ast.Stmt) {
 		d.findLabels(x.Body)
 		d.breakTarget = outer
 
+	case *ast.MatchStmt:
+		outer := d.breakTarget
+		d.breakTarget = x
+		d.findLabels(x.Body)
+		d.breakTarget = outer
+
 	case *ast.CommClause:
 		for _, stmt := range x.Body {
 			d.findLabels(stmt)
@@ -310,6 +316,21 @@ func (d *deadState) findDead(stmt ast.Stmt) {
 			anyReachable = anyReachable || d.reachable
 		}
 		d.reachable = anyReachable || d.hasBreak[x] || !hasDefault
+
+	case *ast.MatchStmt:
+		// A match without a default clause is exhaustive, so the
+		// statement after it is reachable only through a reachable
+		// case body or a break.
+		anyReachable := false
+		for _, cas := range x.Body.List {
+			cc := cas.(*ast.CaseClause)
+			d.reachable = true
+			for _, stmt := range cc.Body {
+				d.findDead(stmt)
+			}
+			anyReachable = anyReachable || d.reachable
+		}
+		d.reachable = anyReachable || d.hasBreak[x]
 
 	case *ast.TypeSwitchStmt:
 		anyReachable := false

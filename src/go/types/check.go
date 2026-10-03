@@ -46,6 +46,7 @@ type environment struct {
 	isPanic       map[*ast.CallExpr]bool // set of panic call expressions (used for termination check)
 	hasLabel      bool                   // set if a function makes use of labels (only ~1% of functions); unused outside functions
 	hasCallOrRecv bool                   // set if an expression contains a function call or channel receive operation
+	ctorCallFun   ast.Expr               // the Fun of the call expression currently being checked, if any (see rawExpr)
 
 	// go/types only
 	exprPos token.Pos // if valid, identifiers are looked up as if at position pos (used by CheckExpr, Eval)

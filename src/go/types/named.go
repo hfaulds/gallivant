@@ -536,6 +536,15 @@ func (t *Named) SetUnderlying(u Type) {
 	if asNamed(u) != nil {
 		panic("underlying type must not be *Named")
 	}
+	// Variants of an enum read from export data belong to this type.
+	if e, _ := u.(*Enum); e != nil {
+		for _, v := range e.variants {
+			if v.typ == nil {
+				v.typ = t
+			}
+		}
+	}
+
 	// be careful to uphold the state invariants
 	t.mu.Lock()
 	defer t.mu.Unlock()

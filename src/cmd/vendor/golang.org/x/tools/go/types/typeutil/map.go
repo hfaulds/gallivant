@@ -298,6 +298,17 @@ func (h hasher) hash(t types.Type) uint32 {
 	case *types.Map:
 		return 9109 + 2*h.hash(t.Key()) + 3*h.hash(t.Elem())
 
+	case *types.Enum:
+		var hash uint32 = 9151 + 2*uint32(t.NumVariants())
+		for i := 0; i < t.NumVariants(); i++ {
+			v := t.Variant(i)
+			hash += 3 * hashString(v.Name())
+			for j := 0; j < v.NumFields(); j++ {
+				hash += 5 * h.hash(v.Field(j).Type())
+			}
+		}
+		return hash
+
 	case *types.Chan:
 		return 9127 + 2*uint32(t.Dir()) + 3*h.hash(t.Elem())
 
@@ -433,6 +444,9 @@ func (h hasher) shallowHash(t types.Type) uint32 {
 
 	case *types.Struct:
 		return 3326489
+
+	case *types.Enum:
+		return 9151
 
 	case *types.Pointer:
 		return 4393139

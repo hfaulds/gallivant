@@ -139,6 +139,58 @@ func (subst *subster) typ(typ Type) Type {
 			return s
 		}
 
+	case *Enum:
+		var variants []*Variant
+		for i, v := range t.variants {
+			fields := substList(v.fields, subst.var_)
+			if fields == nil && variants == nil {
+				continue // nothing changed so far
+			}
+			if variants == nil {
+				variants = make([]*Variant, i, len(t.variants))
+				copy(variants, t.variants)
+			}
+			if fields == nil {
+				fields = v.fields
+			}
+			nv := NewVariant(v.pos, v.pkg, v.name, v.index, fields, v.hasParens)
+			nv.typ = v.typ
+			if subst.expanding != nil {
+				nv.typ = subst.expanding
+			}
+			variants = append(variants, nv)
+		}
+		if variants != nil {
+			// Copy the unchanged tail, if any.
+			variants = append(variants, t.variants[len(variants):]...)
+			// Variants of an instantiated enum belong to the instance.
+			if subst.expanding != nil {
+				for i, v := range variants {
+					if v.typ != subst.expanding {
+						nv := NewVariant(v.pos, v.pkg, v.name, v.index, v.fields, v.hasParens)
+						nv.typ = subst.expanding
+						variants[i] = nv
+					}
+				}
+			}
+			e := &Enum{variants: variants, obj: t.obj}
+			e.markComplete()
+			return e
+		}
+		// No payload type changed, but if we are expanding an instance the
+		// variants must still refer to the instance type.
+		if subst.expanding != nil && len(t.variants) > 0 && t.variants[0].typ != subst.expanding {
+			variants = make([]*Variant, len(t.variants))
+			for i, v := range t.variants {
+				nv := NewVariant(v.pos, v.pkg, v.name, v.index, v.fields, v.hasParens)
+				nv.typ = subst.expanding
+				variants[i] = nv
+			}
+			e := &Enum{variants: variants, obj: t.obj}
+			e.markComplete()
+			return e
+		}
+
 	case *Pointer:
 		base := subst.typ(t.base)
 		if base != t.base {

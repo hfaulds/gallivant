@@ -30,6 +30,9 @@ var (
 	universeError      Type
 	universeAny        Object
 	universeComparable Object
+	universeOption     *TypeName // type Option[T any] enum { None; Some(T) }
+	universeResult     *TypeName // type Result[T any] enum { Ok(T); Err(error) }
+	universeNone       Object    // the untyped value None
 )
 
 // Typ contains the predeclared *Basic types indexed by their
@@ -67,6 +70,8 @@ var Typ = []*Basic{
 	UntypedComplex: {UntypedComplex, IsComplex | IsUntyped, "untyped complex"},
 	UntypedString:  {UntypedString, IsString | IsUntyped, "untyped string"},
 	UntypedNil:     {UntypedNil, IsUntyped, "untyped nil"},
+	UntypedNone:    {UntypedNone, IsUntyped, "untyped None"},
+	UntypedErr:     {UntypedErr, IsUntyped, "untyped Err"},
 }
 
 var basicAliases = [...]*Basic{
@@ -116,6 +121,34 @@ func defPredeclaredTypes() {
 		NewNamed(obj, &Interface{complete: true, tset: &_TypeSet{nil, allTermlist, true}}, nil)
 		def(obj)
 	}
+
+	// type Option[T any] enum { None; Some(T) }
+	{
+		obj := NewTypeName(nopos, nil, "Option", nil)
+		named := NewNamed(obj, nil, nil)
+		tparam := NewTypeParam(NewTypeName(nopos, nil, "T", nil), &emptyInterface)
+		named.SetTypeParams([]*TypeParam{tparam})
+		none := NewVariant(nopos, nil, "None", 0, nil, false)
+		some := NewVariant(nopos, nil, "Some", 1, []*Var{NewField(nopos, nil, "", tparam, false)}, true)
+		enum := NewEnum([]*Variant{none, some}, named)
+		enum.obj = obj
+		named.SetUnderlying(enum)
+		def(obj)
+	}
+
+	// type Result[T any] enum { Ok(T); Err(error) }
+	{
+		obj := NewTypeName(nopos, nil, "Result", nil)
+		named := NewNamed(obj, nil, nil)
+		tparam := NewTypeParam(NewTypeName(nopos, nil, "T", nil), &emptyInterface)
+		named.SetTypeParams([]*TypeParam{tparam})
+		ok := NewVariant(nopos, nil, "Ok", 0, []*Var{NewField(nopos, nil, "", tparam, false)}, true)
+		err := NewVariant(nopos, nil, "Err", 1, []*Var{NewField(nopos, nil, "", Universe.Lookup("error").Type(), false)}, true)
+		enum := NewEnum([]*Variant{ok, err}, named)
+		enum.obj = obj
+		named.SetUnderlying(enum)
+		def(obj)
+	}
 }
 
 var predeclaredConsts = [...]struct {
@@ -136,6 +169,9 @@ func defPredeclaredConsts() {
 
 func defPredeclaredNil() {
 	def(&Nil{object{name: "nil", typ: Typ[UntypedNil]}})
+	// None is the payload-less variant of Option. Like nil, it is an untyped
+	// value that takes its type (some Option[T]) from the context.
+	def(&Variant{object: object{name: "None", typ: Typ[UntypedNone]}})
 }
 
 // A builtinId is the id of a builtin function.
@@ -161,6 +197,9 @@ const (
 	_Println
 	_Real
 	_Recover
+	_Some
+	_Ok
+	_Err
 
 	// package unsafe
 	_Add
@@ -202,6 +241,9 @@ var predeclaredFuncs = [...]struct {
 	_Println: {"println", 0, true, statement},
 	_Real:    {"real", 1, false, expression},
 	_Recover: {"recover", 0, false, statement},
+	_Some:    {"Some", 1, false, expression},
+	_Ok:      {"Ok", 1, false, expression},
+	_Err:     {"Err", 1, false, expression},
 
 	_Add:        {"Add", 2, false, expression},
 	_Alignof:    {"Alignof", 1, false, expression},
@@ -254,6 +296,20 @@ func init() {
 	universeError = Universe.Lookup("error").Type()
 	universeAny = Universe.Lookup("any")
 	universeComparable = Universe.Lookup("comparable")
+	universeOption = Universe.Lookup("Option").(*TypeName)
+	universeResult = Universe.Lookup("Result").(*TypeName)
+	universeNone = Universe.Lookup("None")
+}
+
+// universeExported lists the exported names that Gallivant predeclares in
+// the universe scope rather than in package unsafe.
+var universeExported = map[string]bool{
+	"Option": true,
+	"Result": true,
+	"None":   true,
+	"Some":   true,
+	"Ok":     true,
+	"Err":    true,
 }
 
 // Objects with names containing blanks are internal and not entered into
@@ -271,7 +327,7 @@ func def(obj Object) {
 	}
 	// exported identifiers go into package unsafe
 	scope := Universe
-	if obj.Exported() {
+	if obj.Exported() && !universeExported[name] {
 		scope = Unsafe.scope
 		// set Pkg field
 		switch obj := obj.(type) {

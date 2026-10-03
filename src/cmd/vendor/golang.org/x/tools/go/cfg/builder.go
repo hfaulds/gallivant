@@ -110,6 +110,9 @@ start:
 	case *ast.TypeSwitchStmt:
 		b.typeSwitchStmt(s, label)
 
+	case *ast.MatchStmt:
+		b.matchStmt(s, label)
+
 	case *ast.SelectStmt:
 		b.selectStmt(s, label)
 
@@ -273,6 +276,48 @@ func (b *builder) typeSwitchStmt(s *ast.TypeSwitchStmt, label *lblock) {
 			// This block logically contains a type assertion,
 			// x.(casetype), but it's unclear how to represent x.
 			_ = casetype
+			b.ifelse(body, next)
+			b.current = next
+		}
+		b.current = body
+		b.typeCaseBody(cc, done)
+		b.current = next
+	}
+	if default_ != nil {
+		b.typeCaseBody(default_, done)
+	} else {
+		b.jump(done)
+	}
+	b.current = done
+}
+
+// matchStmt builds the CFG of a Gallivant match statement. It is shaped
+// like a type switch: each case is a test on the subject's variant, the
+// bindings are declared in the case body, and there is no fallthrough.
+func (b *builder) matchStmt(s *ast.MatchStmt, label *lblock) {
+	if s.Init != nil {
+		b.stmt(s.Init)
+	}
+	b.add(s.Tag)
+
+	done := b.newBlock(KindSwitchDone, s)
+	if label != nil {
+		label._break = done
+	}
+	var default_ *ast.CaseClause
+	for _, clause := range s.Body.List {
+		cc := clause.(*ast.CaseClause)
+		if cc.List == nil {
+			default_ = cc
+			continue
+		}
+		body := b.newBlock(KindSwitchCaseBody, cc)
+		var next *Block
+		for _, pattern := range cc.List {
+			next = b.newBlock(KindSwitchNextCase, cc)
+			// pattern names a variant and binds payload fields; it is not
+			// an expression to evaluate, so don't call b.add(pattern).
+			_ = pattern
 			b.ifelse(body, next)
 			b.current = next
 		}

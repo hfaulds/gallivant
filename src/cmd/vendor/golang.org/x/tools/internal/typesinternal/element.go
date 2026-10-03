@@ -120,6 +120,14 @@ func ForEachElement(rtypes *typeutil.Map, msets *typeutil.MethodSetCache, T type
 				visit(T.Field(i).Type(), false)
 			}
 
+		case *types.Enum:
+			for i, n := 0, T.NumVariants(); i < n; i++ {
+				v := T.Variant(i)
+				for j, m := 0, v.NumFields(); j < m; j++ {
+					visit(v.Field(j).Type(), false)
+				}
+			}
+
 		case *types.Tuple:
 			for i, n := 0, T.Len(); i < n; i++ {
 				visit(T.At(i).Type(), false)

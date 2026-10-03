@@ -123,6 +123,14 @@ const (
 	IndexListExpr_Indices
 	IndexListExpr_X
 	InterfaceType_Methods
+	EnumType_Variants
+	Variant_Comment
+	Variant_Doc
+	Variant_Name
+	Variant_Params
+	MatchStmt_Body
+	MatchStmt_Init
+	MatchStmt_Tag
 	KeyValueExpr_Key
 	KeyValueExpr_Value
 	LabeledStmt_Label
@@ -254,6 +262,14 @@ var fieldInfos = [...]fieldInfo{
 	IndexListExpr_Indices: info[*ast.IndexListExpr]("Indices"),
 	IndexListExpr_X:       info[*ast.IndexListExpr]("X"),
 	InterfaceType_Methods: info[*ast.InterfaceType]("Methods"),
+	EnumType_Variants:     info[*ast.EnumType]("Variants"),
+	Variant_Comment:       info[*ast.Variant]("Comment"),
+	Variant_Doc:           info[*ast.Variant]("Doc"),
+	Variant_Name:          info[*ast.Variant]("Name"),
+	Variant_Params:        info[*ast.Variant]("Params"),
+	MatchStmt_Body:        info[*ast.MatchStmt]("Body"),
+	MatchStmt_Init:        info[*ast.MatchStmt]("Init"),
+	MatchStmt_Tag:         info[*ast.MatchStmt]("Tag"),
 	KeyValueExpr_Key:      info[*ast.KeyValueExpr]("Key"),
 	KeyValueExpr_Value:    info[*ast.KeyValueExpr]("Value"),
 	LabeledStmt_Label:     info[*ast.LabeledStmt]("Label"),
