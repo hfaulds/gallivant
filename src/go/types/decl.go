@@ -451,6 +451,9 @@ func (check *Checker) varDecl(obj *Var, lhs []*Var, typ, init ast.Expr) {
 		if typ == nil {
 			// error reported before by arityMatch
 			obj.typ = Typ[Invalid]
+		} else if obj.kind == PackageVar {
+			// Local variables may be assigned later (see assigned.go).
+			check.checkZero(obj, obj.typ, "variable "+obj.name+" declared without a value", "give it a value or use an Option")
 		}
 		return
 	}

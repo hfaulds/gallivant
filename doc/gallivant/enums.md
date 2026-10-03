@@ -28,7 +28,9 @@ Rules:
 - Enums may be generic: `type Option[T any] enum { None; Some(T) }`.
 - The zero value of an enum is its first variant with zero-valued payloads.
   Order your variants so that the first one is the sensible default (this is
-  why `Option` lists `None` first).
+  why `Option` lists `None` first). In a nonil module, an enum whose first
+  variant has a payload without a zero value (such as a pointer) has no zero
+  value itself (see [nonil.md](nonil.md#zero-values)).
 - An enum is comparable with `==` if every payload type is comparable, and
   can then be used as a map key.
 - Methods may be declared on enum types exactly like on any other named type.

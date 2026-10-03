@@ -41,6 +41,10 @@ func (check *Checker) funcBody(decl *declInfo, name string, sig *Signature, body
 
 	check.stmtList(0, body.List)
 
+	if check.conf.NoNil && !check.isCgoGenerated(body.Pos()) {
+		check.bodies = append(check.bodies, funcBodyInfo{sig, body})
+	}
+
 	if check.hasLabel && !check.conf.IgnoreBranchErrors {
 		check.labels(body)
 	}
@@ -443,6 +447,7 @@ func (check *Checker) stmt(ctxt stmtContext, s syntax.Stmt) {
 		// in statement context. Such statements may be parenthesized."
 		var x operand
 		kind := check.rawExpr(nil, &x, s.X, nil, false)
+		check.zeroReadOk(s.X) // a receive statement discards the value
 		var msg string
 		var code Code
 		switch x.mode() {

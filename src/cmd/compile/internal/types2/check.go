@@ -146,7 +146,13 @@ type Checker struct {
 	unionTypeSets map[*Union]*_TypeSet       // computed type sets for union types
 	usedVars      map[*Var]bool              // set of used variables
 	usedPkgNames  map[*PkgName]bool          // set of used package names
-	mono          monoGraph                  // graph for detecting non-monomorphizable instantiation loops
+
+	// Gallivant nonil modules (see zero.go and assigned.go); only used if conf.NoNil is set
+	zeroReads  map[syntax.Expr]Type      // map index and receive expressions that may yield a missing zero value
+	varRefs    map[*syntax.Name]*Var     // variables denoted by identifiers
+	panicCalls map[*syntax.CallExpr]bool // calls of the predeclared panic
+	bodies     []funcBodyInfo            // function bodies to check for unassigned variables
+	mono       monoGraph                 // graph for detecting non-monomorphizable instantiation loops
 
 	firstErr   error                    // first error encountered
 	methods    map[*TypeName][]*Func    // maps package scope type names to associated non-blank (non-interface) methods
@@ -269,6 +275,14 @@ func (check *Checker) initFiles(files []*syntax.File) {
 
 	check.firstErr = nil
 	check.methods = nil
+	check.zeroReads = nil
+	check.varRefs = nil
+	check.panicCalls = nil
+	check.bodies = nil
+	if check.conf.NoNil {
+		check.varRefs = make(map[*syntax.Name]*Var)
+		check.panicCalls = make(map[*syntax.CallExpr]bool)
+	}
 	check.untyped = nil
 	check.delayed = nil
 	check.objPath = nil
@@ -446,6 +460,12 @@ func (check *Checker) checkFiles(files []*syntax.File) {
 	print("== processDelayed ==")
 	check.processDelayed(0) // incl. all functions
 
+	if check.conf.NoNil {
+		print("== nonil ==")
+		check.reportZeroReads()
+		check.unassignedVars()
+	}
+
 	print("== cleanup ==")
 	check.cleanup()
 
@@ -477,6 +497,10 @@ func (check *Checker) checkFiles(files []*syntax.File) {
 	check.unionTypeSets = nil
 	check.usedVars = nil
 	check.usedPkgNames = nil
+	check.zeroReads = nil
+	check.varRefs = nil
+	check.panicCalls = nil
+	check.bodies = nil
 	check.ctxt = nil
 
 	// TODO(gri): shouldn't the cleanup above occur after the bailout?
@@ -596,4 +620,11 @@ func instantiatedIdent(expr syntax.Expr) *syntax.Name {
 
 	// extra debugging of go.dev/issue/63933
 	panic(sprintf(nil, true, "instantiated ident not found; please report: %s", expr))
+}
+
+// nonilPackage reports whether pkg is checked under the rules of nonil
+// modules: it is the package being checked or, according to
+// Config.NoNilPackage, an import compiled with NoNil.
+func (check *Checker) nonilPackage(pkg *Package) bool {
+	return pkg == check.pkg || check.conf.NoNilPackage != nil && check.conf.NoNilPackage(pkg)
 }

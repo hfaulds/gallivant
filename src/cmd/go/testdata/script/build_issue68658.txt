@@ -4,7 +4,7 @@
 [short] skip 'requires build'
 
 env GO111MODULE=off
-go build foo bar
+go build -gcflags=all=-nonil=false foo bar
 
 -- foo/main.go --
 //go:build go1.10

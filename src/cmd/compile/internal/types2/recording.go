@@ -154,6 +154,7 @@ func (check *Checker) recordInstance(expr syntax.Expr, targs []Type, typ Type) {
 
 func (check *Checker) recordDef(id *syntax.Name, obj Object) {
 	assert(id != nil)
+	check.recordVarRef(id, obj)
 	if m := check.Defs; m != nil {
 		m[id] = obj
 	}
@@ -162,8 +163,19 @@ func (check *Checker) recordDef(id *syntax.Name, obj Object) {
 func (check *Checker) recordUse(id *syntax.Name, obj Object) {
 	assert(id != nil)
 	assert(obj != nil)
+	check.recordVarRef(id, obj)
 	if m := check.Uses; m != nil {
 		m[id] = obj
+	}
+}
+
+// recordVarRef records the variable, if any, denoted by id, for the
+// unassigned variable check of nonil modules.
+func (check *Checker) recordVarRef(id *syntax.Name, obj Object) {
+	if m := check.varRefs; m != nil {
+		if v, _ := obj.(*Var); v != nil {
+			m[id] = v
+		}
 	}
 }
 

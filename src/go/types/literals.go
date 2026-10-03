@@ -156,6 +156,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 	switch u, _ := commonUnder(base, nil); utyp := u.(type) {
 	case *Struct:
 		if len(e.Elts) == 0 {
+			check.checkZero(inNode(e, e.Rbrace), base, check.sprintf("%s{} literal", base), "")
 			break
 		}
 		// Convention for error messages on invalid struct literals:
@@ -165,6 +166,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 		if _, ok := e.Elts[0].(*ast.KeyValueExpr); ok {
 			// all elements must have keys
 			visited := make(trie[*Var])
+			set := make([]bool, len(fields)) // fields given a value directly
 			for _, e := range e.Elts {
 				kv, _ := e.(*ast.KeyValueExpr)
 				if kv == nil {
@@ -201,6 +203,9 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				check.recordUse(key, fld)
 				etyp := fld.typ
 				check.assignment(x, etyp, "struct literal")
+				if len(index) == 1 {
+					set[index[0]] = true
+				}
 				if alt, n := visited.insert(index, fld); n != 0 {
 					if fld == alt {
 						check.errorf(kv, DuplicateLitField, "duplicate field name %s in struct literal", fld.name)
@@ -208,6 +213,14 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 						check.errorf(kv, DuplicateLitField, "cannot specify promoted field %s and enclosing embedded field %s", fld.name, alt.name)
 					} else { // n > len(index)
 						check.errorf(kv, DuplicateLitField, "cannot specify embedded field %s and enclosed promoted field %s", fld.name, alt.name)
+					}
+				}
+			}
+			// Fields without a value are set to their zero value.
+			if check.conf.NoNil && !check.hasZero(base) {
+				for i, fld := range fields {
+					if !set[i] && !check.checkZero(inNode(e, e.Rbrace), fld.typ, check.sprintf("%s literal omits field %s", base, fld.name), "") {
+						break
 					}
 				}
 			}
@@ -246,7 +259,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 		}
 
 	case *Array:
-		n := check.indexedElts(e.Elts, utyp.elem, utyp.len)
+		n, set := check.indexedElts(e.Elts, utyp.elem, utyp.len)
 		// If we have an array of unknown length (usually [...]T arrays, but also
 		// arrays [n]T where n is invalid) set the length now that we know it and
 		// record the type for the array (usually done by check.typ which is not
@@ -265,9 +278,16 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				check.recordTypeAndValue(e.Type, typexpr, utyp, nil)
 			}
 		}
+		if set < utyp.len {
+			// Elements without a value are set to their zero value.
+			check.checkZero(inNode(e, e.Rbrace), utyp.elem, check.sprintf("array literal sets %d of %d elements", set, utyp.len), "")
+		}
 
 	case *Slice:
-		check.indexedElts(e.Elts, utyp.elem, -1)
+		if n, set := check.indexedElts(e.Elts, utyp.elem, -1); set < n {
+			// Elements without a value are set to their zero value.
+			check.checkZero(inNode(e, e.Rbrace), utyp.elem, check.sprintf("slice literal sets %d of %d elements", set, n), "")
+		}
 
 	case *Map:
 		// If the map key type is an interface (but not a type parameter),
@@ -345,8 +365,9 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 // indexedElts checks the elements (elts) of an array or slice composite literal
 // against the literal's element type (typ), and the element indices against
 // the literal length if known (length >= 0). It returns the length of the
-// literal (maximum index value + 1).
-func (check *Checker) indexedElts(elts []ast.Expr, typ Type, length int64) int64 {
+// literal (maximum index value + 1) and the number of distinct elements given
+// a value.
+func (check *Checker) indexedElts(elts []ast.Expr, typ Type, length int64) (int64, int64) {
 	visited := make(map[int64]bool, len(elts))
 	var index, max int64
 	for _, e := range elts {
@@ -386,5 +407,5 @@ func (check *Checker) indexedElts(elts []ast.Expr, typ Type, length int64) int64
 		check.genericExpr(&x, eval, typ)
 		check.assignment(&x, typ, "array or slice literal")
 	}
-	return max
+	return max, int64(len(visited))
 }

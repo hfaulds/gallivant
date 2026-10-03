@@ -19,7 +19,7 @@ func f(q *int, err error) Result[int] {
 }
 
 func g() Option[*int] {
-	var zero *int // zero values are fine
+	var zero int // zero values are fine if the type has one
 	_ = zero
 	return None
 }

@@ -241,6 +241,14 @@ func (check *Checker) builtin(T *target, x *operand, call *syntax.CallExpr, id b
 			return
 		}
 
+		underIs(x.typ(), func(u Type) bool {
+			if s, _ := u.(*Slice); s != nil {
+				// clear(s) sets the elements of s to their zero value
+				return check.checkZero(x, s.elem, "clear("+ExprString(x.expr)+")", "")
+			}
+			return true
+		})
+
 		x.mode_ = novalue
 		if check.recordTypes() {
 			check.recordBuiltinType(call.Fun, makeSig(nil, x.typ()))
@@ -560,17 +568,25 @@ func (check *Checker) builtin(T *target, x *operand, call *syntax.CallExpr, id b
 		}
 
 		types := []Type{T}
-		var sizes []int64 // constant integer arguments, if any
-		for _, arg := range argList[1:] {
+		var sizes []int64   // constant integer arguments, if any
+		length := int64(-1) // constant length argument, if any
+		for i, arg := range argList[1:] {
 			typ, size := check.index(arg, -1) // ok to continue with typ == Typ[Invalid]
 			types = append(types, typ)
 			if size >= 0 {
 				sizes = append(sizes, size)
 			}
+			if i == 0 {
+				length = size
+			}
 		}
 		if len(sizes) == 2 && sizes[0] > sizes[1] {
 			check.error(argList[1], SwappedMakeArgs, invalidArg+"length and capacity swapped")
 			// safe to continue
+		}
+		if s, _ := u.(*Slice); s != nil && length != 0 {
+			// make([]T, n) creates n zero values of T
+			check.checkZero(argList[1], s.elem, "make("+ExprString(arg0)+", "+ExprString(argList[1])+")", "make it with length 0 and append")
 		}
 		x.mode_ = value
 		x.typ_ = T
@@ -704,6 +720,7 @@ func (check *Checker) builtin(T *target, x *operand, call *syntax.CallExpr, id b
 		case typexpr:
 			// new(T)
 			check.validVarType(arg, x.typ())
+			check.checkZero(arg, x.typ(), "new("+ExprString(arg)+")", "use &v or new(v) with a value v")
 		default:
 			// new(expr)
 			if isUntyped(x.typ()) {
@@ -738,6 +755,9 @@ func (check *Checker) builtin(T *target, x *operand, call *syntax.CallExpr, id b
 				check.isPanic = p
 			}
 			p[call] = true
+		}
+		if m := check.panicCalls; m != nil {
+			m[call] = true
 		}
 
 		check.assignment(x, &emptyInterface, "argument to panic")

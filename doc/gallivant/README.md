@@ -14,7 +14,7 @@ Gallivant adds four things to Go. Everything else, including the toolchain,
 | `match` statement with exhaustiveness checking | done | [enums.md](enums.md) |
 | Predeclared `Option[T]` and `Result[T]` enums, packages `option` and `result` | done | [option-result.md](option-result.md) |
 | Import capabilities (`with [...]` grants on imports; `caps false` in go.mod opts out) | done | [caps.md](caps.md) |
-| No `nil` by default (`nonil false` in go.mod opts out) | done | [nonil.md](nonil.md) |
+| No `nil` by default, including no nil zero values (`nonil false` in go.mod opts out) | done | [nonil.md](nonil.md) |
 
 ## Building
 

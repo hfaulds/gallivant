@@ -120,6 +120,7 @@ func (check *Checker) indexExpr(x *operand, e *syntax.IndexExpr) (isFuncInst boo
 		x.mode_ = mapindex
 		x.typ_ = typ.elem
 		x.expr = e
+		check.noteZeroRead(e, typ.elem)
 		return false
 
 	case *Interface:
@@ -194,6 +195,7 @@ func (check *Checker) indexExpr(x *operand, e *syntax.IndexExpr) (isFuncInst boo
 				x.mode_ = mapindex
 				x.typ_ = elem
 				x.expr = e
+				check.noteZeroRead(e, elem)
 				return false
 			}
 

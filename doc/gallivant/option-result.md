@@ -68,3 +68,8 @@ own `Result` type continues to compile unchanged.
 
 `var o Option[int]` is `None`. `var r Result[int]` is `Ok(0)`, because the
 first variant is the zero value and `Err(nil)` would be worse.
+
+`Option[T]` always has a zero value, which is why it replaces a nilable
+pointer. In a nonil module `Result[T]` has a zero value only if `T` does:
+`Result[*T]` has none, since it would be `Ok(nil)` (see
+[nonil.md](nonil.md#zero-values)).

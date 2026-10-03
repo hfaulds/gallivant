@@ -8,6 +8,7 @@ go build
 -- go.mod --
 module m
 go 1.12
+nonil false
 require (
 	sub.1 v1.0.0
 )

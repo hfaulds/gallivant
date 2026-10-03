@@ -244,6 +244,9 @@ func (check *Checker) lhsVar(lhs syntax.Expr) Type {
 		return Typ[Invalid]
 	case variable, mapindex:
 		// ok
+		if x.mode() == mapindex {
+			check.zeroReadOk(x.expr) // assigning to m[k] does not read it
+		}
 	default:
 		if sel, ok := x.expr.(*syntax.SelectorExpr); ok {
 			var op operand

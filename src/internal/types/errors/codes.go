@@ -1529,4 +1529,23 @@ const (
 	// Example (in a nonil module):
 	//  var p *int = nil
 	NilNotAllowed
+
+	// NoZeroValue occurs when code in a nonil module creates the zero value
+	// of a type that has none, such as a pointer, map, channel, function or
+	// interface, or a struct, array or enum containing one.
+	//
+	// Example (in a nonil module):
+	//  var p *int
+	NoZeroValue
+
+	// UnassignedVar occurs when a local variable or named result of a type
+	// without a zero value is used before it has definitely been assigned in
+	// a nonil module.
+	//
+	// Example (in a nonil module):
+	//  func f() *int {
+	//  	var p *int
+	//  	return p
+	//  }
+	UnassignedVar
 )

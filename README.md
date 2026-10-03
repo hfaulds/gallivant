@@ -57,9 +57,22 @@ import (
 ```
 
 **No `nil`** ([design](doc/gallivant/nonil.md)).
-`nil` is a compile error in your code. Existing Go code can opt out with a
+`nil` is a compile error in your code, and so is creating a nil zero
+value. Pointers, maps, channels, functions and interfaces have no zero value:
+a variable of such a type must be assigned before it is used, and a struct
+literal must set its pointer fields. Existing Go code can opt out with a
 `nonil false` line in its go.mod. The standard library and your dependencies
 always compile with `nil` allowed.
+
+```go
+var w io.Writer // ok: assigned on every path before use
+if path == "" {
+	w = os.Stdout
+} else {
+	w = mustCreate(path)
+}
+cfg := Config{Name: "x"} // error if Config has a pointer field
+```
 
 ```
 module example.com/legacy
@@ -114,7 +127,7 @@ the same small updates this fork made to its vendored copy.
 
 Done: enum types and `match` (compiler, `gofmt`, `go vet`), `Option` and
 `Result` with the `option` and `result` packages, import capabilities, and
-no `nil` by default.
+no `nil` (including nil zero values) by default.
 
 Not done: enums have no `reflect.Kind` of their own, so `fmt` prints the
 lowered struct unless you define a `String` method; a `go vet` check nudging

@@ -16,6 +16,14 @@ stdout '"NoNil": true'
 stderr '^(\./)?bad[/\\]main\.go:6:15: use of nil in nonil module \(use Option, Result or a zero value instead\)$'
 stderr '^(\./)?bad[/\\]main\.go:9:12: use of nil in nonil module'
 
+# Types without a zero value: pointers and structs of this module that
+# contain them.
+! go build -o $devnull ./zero
+stderr '^(\./)?zero[/\\]main\.go:5:5: variable g declared without a value: \*int has no zero value in a nonil module; give it a value or use an Option$'
+stderr '^(\./)?zero[/\\]main\.go:9:7: p is used before it is assigned \(\*int has no zero value in a nonil module\)$'
+stderr '^(\./)?zero[/\\]main\.go:10:16: lib.T literal omits field P: \*int has no zero value in a nonil module$'
+stderr '^(\./)?zero[/\\]main\.go:12:6: q is used before it is assigned \(lib.T has no zero value in a nonil module \(it contains \*int\)\)$'
+
 # Files named on the command line follow the module containing them.
 ! go build -o $devnull bad/main.go
 stderr 'use of nil in nonil module'
@@ -79,6 +87,9 @@ import (
 	"fmt"
 	"result"
 	"strconv"
+	"strings"
+
+	"example.com/app/lib"
 )
 
 func parse(s string) Result[int] {
@@ -92,8 +103,17 @@ func main() {
 	case Err(err):
 		fmt.Println(err)
 	}
-	var p *int // zero values are fine
-	_ = p
+	var n int // zero values are fine if the type has one
+	_ = n
+	var sb strings.Builder // and for structs of other modules
+	sb.WriteString("x")
+	var p *int // a pointer has none, but may be assigned later
+	if n == 0 {
+		p = &n
+	} else {
+		p = new(int)
+	}
+	fmt.Println(*p, sb.String(), lib.T{N: 1, P: p})
 }
 -- ok/main_test.go --
 package main
@@ -106,6 +126,27 @@ func TestParse(t *testing.T) {
 		t.Fatalf("parse(%q) = Ok(%d), want Err", "x", n)
 	case Err(_):
 	}
+}
+-- lib/lib.go --
+package lib
+
+type T struct {
+	N int
+	P *int
+}
+-- zero/main.go --
+package main
+
+import "example.com/app/lib"
+
+var g *int
+
+func main() {
+	var p *int
+	_ = *p
+	_ = lib.T{N: 1}
+	var q lib.T
+	_ = q
 }
 -- bad/main.go --
 package main
@@ -169,6 +210,11 @@ package lib
 func Find() *int {
 	return nil
 }
+
+type Config struct {
+	Name string
+	Log  *int
+}
 -- usedep/go.mod --
 module example.com/usedep
 
@@ -189,6 +235,8 @@ import (
 
 func main() {
 	fmt.Println(option.IsNone(option.FromPtr(lib.Find())))
+	var c lib.Config // a struct of another module has a zero value
+	fmt.Println(c.Name, lib.Config{Name: "x"}.Name)
 }
 -- invalid/go.mod --
 module example.com/invalid

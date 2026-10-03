@@ -27,6 +27,7 @@ func buildPGOInliningTest(t *testing.T, dir string, gcflag string) []byte {
 	// Add a go.mod so we have a consistent symbol names in this temp dir.
 	goMod := fmt.Sprintf(`module %s
 go 1.19
+nonil false
 `, pkg)
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0644); err != nil {
 		t.Fatalf("error writing go.mod: %v", err)

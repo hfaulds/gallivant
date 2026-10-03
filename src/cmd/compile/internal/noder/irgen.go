@@ -10,8 +10,10 @@ import (
 	"internal/types/errors"
 	"regexp"
 	"sort"
+	"strings"
 
 	"cmd/compile/internal/base"
+	"cmd/compile/internal/caps"
 	"cmd/compile/internal/midway"
 	"cmd/compile/internal/rangefunc"
 	"cmd/compile/internal/syntax"
@@ -63,6 +65,7 @@ recheck:
 		Importer:           &importer,
 		Sizes:              types2.SizesFor("gc", buildcfg.GOARCH),
 		NoNil:              base.Flag.NoNil,
+		NoNilPackage:       sameModule,
 	}
 	if base.Flag.ErrorURL {
 		conf.ErrorURL = " [go.dev/e/%s]"
@@ -319,4 +322,20 @@ func (f *cycleFinder) visit(typ0 types2.Type) bool {
 			return false
 		}
 	}
+}
+
+// sameModule reports whether pkg belongs to the module of the package being
+// compiled (base.Flag.ModPath), and so was compiled with the same nonil
+// setting. The module path recorded in pkg's export data decides if there is
+// one; packages imported only indirectly have none recorded, and are judged
+// by their import path.
+func sameModule(pkg *types2.Package) bool {
+	mod := base.Flag.ModPath
+	if mod == "" {
+		return false
+	}
+	if fact := caps.Lookup(pkg.Path()); fact != nil {
+		return fact.ModulePath == mod
+	}
+	return pkg.Path() == mod || strings.HasPrefix(pkg.Path(), mod+"/")
 }

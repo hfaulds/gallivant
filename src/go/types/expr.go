@@ -152,6 +152,7 @@ func (check *Checker) unary(x *operand, e *ast.UnaryExpr) {
 			x.mode_ = commaok
 			x.typ_ = elem
 			check.hasCallOrRecv = true
+			check.noteZeroRead(e, elem)
 			return
 		}
 		x.invalidate()
@@ -1335,6 +1336,7 @@ func (check *Checker) multiExpr(e ast.Expr, allowCommaOk bool) (list []*operand,
 		x2 := &operand{mode_: value, expr: dummy, typ_: typ}
 		list = append(list, x2)
 		commaOk = true
+		check.zeroReadOk(e)
 	}
 
 	return

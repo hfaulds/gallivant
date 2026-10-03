@@ -210,10 +210,15 @@ var filemap = map[string]action{
 	"under.go":         nil,
 	"unify.go":         fixSprintf,
 	"enum.go":          fixTokenPos,
-	"universe.go":      fixGlobalTypVarDecl,
-	"util_test.go":     fixTokenPos,
-	"validtype.go":     func(f *ast.File) { fixTokenPos(f); renameSelectors(f, "Trace->_Trace") },
-	"version.go":       func(f *ast.File) { renameIdents(f, "poser->positioner") },
+	"zero.go": func(f *ast.File) {
+		renameImportPath(f, `"cmd/compile/internal/syntax"->"go/ast"`)
+		renameSelectorExprs(f, "syntax.Operation->ast.UnaryExpr") // must happen before renaming identifiers
+		renameIdents(f, "syntax->ast", "poser->positioner")
+	},
+	"universe.go":  fixGlobalTypVarDecl,
+	"util_test.go": fixTokenPos,
+	"validtype.go": func(f *ast.File) { fixTokenPos(f); renameSelectors(f, "Trace->_Trace") },
+	"version.go":   func(f *ast.File) { renameIdents(f, "poser->positioner") },
 }
 
 // TODO(gri) We should be able to make these rewriters more configurable/composable.
